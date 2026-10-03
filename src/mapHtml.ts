@@ -196,7 +196,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         const rotationY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), playerTransform.rotateY);
         const rotationZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), playerTransform.rotateZ);
 
-        const mapMatrix = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
+        // MapLibre 4.x passes the matrix directly; newer releases expose it in render args.
+        const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
+        if (!projectionMatrix || projectionMatrix.length !== 16) return;
+        const mapMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
         const modelMatrix = new THREE.Matrix4()
           .makeTranslation(playerTransform.translateX, playerTransform.translateY, playerTransform.translateZ)
           .scale(new THREE.Vector3(playerTransform.scale, -playerTransform.scale, playerTransform.scale))
