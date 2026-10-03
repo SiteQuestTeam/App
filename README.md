@@ -1,6 +1,19 @@
 # SiteQuest App
 
-Expo / React Native mobile application. The current screen displays Hello World.
+Klikalny frontend aplikacji mobilnej SiteQuest zbudowany w Expo / React Native.
+
+## Frontend MVP
+
+- landing page zgodny z identyfikacją „Urban Signal”,
+- mapa MapLibre oparta na danych OpenStreetMap, z perspektywą 3D,
+- awatar gracza, promień interakcji, GPS i ręczne przemieszczanie po mapie,
+- przykładowe inicjatywy, szczegóły i dołączanie do ekipy,
+- trzyetapowy kreator inicjatywy,
+- widoki Odkrywaj, Ekipa, Profil i Panel NGO,
+- demonstracyjne przełączanie roli Gracz / NGO bez logowania,
+- aparat do wykonywania Zdjęć na żywo.
+
+Mapa pobiera styl i kafelki przez internet. Pozostałe ekrany używają lokalnych danych demonstracyjnych i nie wymagają backendu.
 
 ## Local setup on Windows
 
