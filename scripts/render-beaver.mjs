@@ -39,7 +39,7 @@ modelSource +
 '\nconst fill=new THREE.DirectionalLight(0xd8e8ff,1.25); fill.position.set(4.0,3.5,4.5); scene.add(fill);' +
 '\nconst rim=new THREE.DirectionalLight(0xc8b8ff,1.35); rim.position.set(3.0,4.0,-4.5); scene.add(rim);' +
 '\nconst floor=new THREE.Mesh(new THREE.CircleGeometry(2.1,64),new THREE.MeshStandardMaterial({color:0xebe5dc,roughness:1})); floor.rotation.x=-Math.PI/2; floor.position.y=0.02; floor.receiveShadow=true; scene.add(floor);' +
-'\nconst beaver=createBeaver3D(); if(beaver.userData.beacon) beaver.userData.beacon.visible=false;' +
+'\nconst beaver=createBeaver3D(); if(beaver.userData.beacon) beaver.remove(beaver.userData.beacon);' +
 '\nbeaver.traverse((node)=>{if(node.isMesh){node.castShadow=true;node.receiveShadow=true;}}); scene.add(beaver);' +
 '\nconst box=new THREE.Box3().setFromObject(beaver); const size=new THREE.Vector3(); const center=new THREE.Vector3(); box.getSize(size); box.getCenter(center);' +
 '\nbeaver.position.x-=center.x; beaver.position.z-=center.z;' +
