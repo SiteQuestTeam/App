@@ -3,12 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
-import { BottomNav, RoleSwitcher, StatusChip } from '../components';
+import { BottomNav, StatusChip } from '../components';
 import { initiatives, KRAKOW_CENTER } from '../data';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
 
-export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRoleChange }) {
+export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
   const webView = useRef(null);
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
@@ -284,8 +284,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
           </View>
         )}
         <View style={styles.overlayRow}>
-          <RoleSwitcher compact role={role} onChange={onRoleChange} />
-          <View style={styles.points}><View style={styles.pointsDot} /><Text style={styles.pointsText}>{role === 'ngo' ? 'PANEL NGO' : '860 PKT'}</Text></View>
+          <View style={styles.points}><View style={styles.pointsDot} /><Text style={styles.pointsText}>{role === 'ngo' ? 'KONTO NGO' : '860 PKT'}</Text></View>
         </View>
       </View>
 
@@ -361,7 +360,7 @@ const styles = StyleSheet.create({
   searchResultTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
   searchResultMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   noResults: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, padding: 16, textAlign: 'center' },
-  overlayRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 9 },
+  overlayRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'flex-end', marginTop: 9 },
   points: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 7, minHeight: 38, paddingHorizontal: 13, ...shadow },
   pointsDot: { backgroundColor: colors.violet, borderRadius: 4, height: 8, width: 8 },
   pointsText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.5 },
