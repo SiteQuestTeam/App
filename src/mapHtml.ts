@@ -24,18 +24,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     html,body,#map{width:100%;height:100%;margin:0;overflow:hidden;background:#EAF0F7}
     *{box-sizing:border-box;font-family:Arial,sans-serif}
     #map:after{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,249,252,.06),rgba(23,70,183,.025) 55%,rgba(16,24,40,.05))}
-    .poi-marker{--poi:#2F6BFF;appearance:none;border:0;padding:0;background:transparent;position:relative;width:106px;height:146px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;user-select:none;filter:drop-shadow(0 12px 18px rgba(16,24,40,.22));transform-origin:50% 100%;transition:transform .2s ease,filter .2s ease;pointer-events:auto;z-index:1}
-    .poi-marker.selected{transform:scale(1.10);filter:drop-shadow(0 15px 24px rgba(16,24,40,.28));z-index:10}
-    .poi-head{position:relative;width:94px;height:94px;border-radius:50%;background:#fff;border:4px solid #fff;box-shadow:0 0 0 5px var(--poi),inset 0 0 0 1px rgba(16,24,40,.05);display:grid;place-items:center;overflow:visible}
-    .poi-head:before{content:"";position:absolute;inset:-10px;border:3px solid var(--poi);border-radius:50%;opacity:.18;transform:scale(.88)}
-    .poi-marker.selected .poi-head:before{animation:poiPulse 1.7s ease-out infinite}
-    .poi-core{position:relative;width:70px;height:70px;border-radius:50%;display:grid;place-items:center;background:var(--poi);box-shadow:inset 0 7px 12px rgba(255,255,255,.24),inset 0 -7px 12px rgba(16,24,40,.13)}
-    .poi-icon{width:34px;height:34px;display:block;fill:none;stroke:#fff;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
-    .poi-neck{width:17px;height:29px;margin-top:-2px;border-radius:8px;background:var(--poi);box-shadow:inset 0 -8px 8px rgba(16,24,40,.16),0 6px 10px rgba(16,24,40,.18)}
-    .poi-base{width:54px;height:17px;margin-top:-2px;border-radius:50%;background:var(--poi);border:3px solid #fff;box-shadow:0 4px 0 rgba(16,24,40,.18),0 8px 14px rgba(16,24,40,.20)}
-    .poi-title{position:absolute;top:129px;left:50%;max-width:150px;transform:translateX(-50%) translateY(4px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.97);color:#101828;font-size:10px;font-weight:800;box-shadow:0 7px 18px rgba(16,24,40,.14);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
-    .poi-marker.selected .poi-title{opacity:1;transform:translateX(-50%) translateY(0)}
-    @keyframes poiPulse{0%{transform:scale(.82);opacity:.30}75%,100%{transform:scale(1.34);opacity:0}}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
     .maplibregl-ctrl-logo{display:none!important}
     ${compact ? '.maplibregl-ctrl-bottom-right{display:none}' : ''}
@@ -505,24 +493,243 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     }
     // BEAVER_MODEL_END
 
-    const initiativeMarkerElements = new Map();
-    window.__selectedInitiativeId = null;
-
-    function initiativeIcon(marker) {
-      if (marker === 'R') {
-        return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M15.8 10a2.5 2.5 0 1 0 0-5"/><path d="M3.5 19c.4-3 2.2-4.8 5-4.8s4.7 1.8 5.1 4.8"/><path d="M14.4 14.4c2.7 0 4.4 1.6 4.8 4.1"/></svg>';
+    function getInitiativeElevation(lng, lat) {
+      try {
+        const point = map.project([lng, lat]);
+        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
+        const buildingHeight = Math.max(
+          0,
+          ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)),
+        );
+        return buildingHeight + 1.2;
+      } catch {
+        return 1.2;
       }
-      if (marker === 'Z') {
-        return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7.5 4.5 17"/><path d="M17 7.5 19.5 17"/><path d="M9.5 8.5h5"/><circle cx="6.5" cy="17" r="3.5"/><circle cx="17.5" cy="17" r="3.5"/><path d="M9.7 17h4.6"/></svg>';
-      }
-      return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M7 5h9l-1.7 3L16 11H7"/></svg>';
     }
+
+    function drawInitiativeGlyph(ctx, marker, cx, cy) {
+      ctx.save();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.lineWidth = 12;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (marker === 'R') {
+        ctx.beginPath();
+        ctx.arc(cx - 26, cy - 10, 24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 30, cy - 16, 19, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - 70, cy + 62);
+        ctx.quadraticCurveTo(cx - 62, cy + 18, cx - 24, cy + 18);
+        ctx.quadraticCurveTo(cx + 18, cy + 18, cx + 27, cy + 62);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx + 22, cy + 29);
+        ctx.quadraticCurveTo(cx + 63, cy + 29, cx + 72, cy + 62);
+        ctx.stroke();
+      } else if (marker === 'Z') {
+        ctx.beginPath();
+        ctx.arc(cx - 38, cy + 28, 28, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx + 38, cy + 28, 28, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(cx - 18, cy + 28);
+        ctx.lineTo(cx + 18, cy + 28);
+        ctx.moveTo(cx - 48, cy - 46);
+        ctx.lineTo(cx - 63, cy + 4);
+        ctx.moveTo(cx + 48, cy - 46);
+        ctx.lineTo(cx + 63, cy + 4);
+        ctx.moveTo(cx - 18, cy - 34);
+        ctx.lineTo(cx + 18, cy - 34);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(cx - 40, cy + 68);
+        ctx.lineTo(cx - 40, cy - 58);
+        ctx.moveTo(cx - 31, cy - 50);
+        ctx.lineTo(cx + 48, cy - 50);
+        ctx.lineTo(cx + 28, cy - 12);
+        ctx.lineTo(cx + 48, cy + 22);
+        ctx.lineTo(cx - 31, cy + 22);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function createInitiativeTexture(item, selected = false) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 768;
+      const ctx = canvas.getContext('2d');
+      const color = item.color;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Soft footprint shadow.
+      ctx.save();
+      ctx.globalAlpha = selected ? 0.28 : 0.18;
+      ctx.fillStyle = '#101828';
+      ctx.beginPath();
+      ctx.ellipse(256, 702, selected ? 104 : 92, selected ? 30 : 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Ground ring.
+      ctx.save();
+      ctx.globalAlpha = selected ? 0.34 : 0.20;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = selected ? 18 : 14;
+      ctx.beginPath();
+      ctx.ellipse(256, 672, selected ? 126 : 112, selected ? 40 : 34, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Flat stem.
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(230, 390, 52, 250, 26);
+      ctx.fill();
+
+      // Base foot.
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.ellipse(256, 635, 83, 34, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(256, 635, 67, 25, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Head outer halo.
+      ctx.save();
+      ctx.globalAlpha = selected ? 0.30 : 0.15;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 18;
+      ctx.beginPath();
+      ctx.arc(256, 270, selected ? 182 : 170, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // White outer plate.
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(256, 270, 150, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Colored core.
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(256, 270, 126, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle flat highlight.
+      const gradient = ctx.createLinearGradient(170, 150, 340, 390);
+      gradient.addColorStop(0, 'rgba(255,255,255,0.26)');
+      gradient.addColorStop(0.45, 'rgba(255,255,255,0.02)');
+      gradient.addColorStop(1, 'rgba(16,24,40,0.10)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(256, 270, 126, 0, Math.PI * 2);
+      ctx.fill();
+
+      drawInitiativeGlyph(ctx, item.marker, 256, 270);
+
+      if (selected) {
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(256, 270, 138, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    const initiativeFlatLayer = {
+      id: 'sitequest-initiatives-flat',
+      type: 'custom',
+      renderingMode: '3d',
+      onAdd(mapInstance, gl) {
+        this.map = mapInstance;
+        this.camera = new THREE.Camera();
+        this.scene = new THREE.Scene();
+
+        this.entries = markers.map((item, index) => {
+          const mercator = maplibregl.MercatorCoordinate.fromLngLat(
+            item.coordinates,
+            getInitiativeElevation(item.coordinates[0], item.coordinates[1]),
+          );
+          const meters = mercator.meterInMercatorCoordinateUnits();
+          const normalTexture = createInitiativeTexture(item, false);
+          const selectedTexture = createInitiativeTexture(item, true);
+
+          const material = new THREE.SpriteMaterial({
+            map: normalTexture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+          });
+          const sprite = new THREE.Sprite(material);
+          sprite.position.set(mercator.x, mercator.y, mercator.z);
+          sprite.scale.set(meters * 30, meters * 45, 1);
+          sprite.center.set(0.5, 0.05);
+          sprite.renderOrder = 40 + index;
+          sprite.userData.itemId = item.id;
+          sprite.userData.normalTexture = normalTexture;
+          sprite.userData.selectedTexture = selectedTexture;
+          sprite.userData.baseScaleX = meters * 30;
+          sprite.userData.baseScaleY = meters * 45;
+          this.scene.add(sprite);
+
+          return { item, sprite };
+        });
+
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: mapInstance.getCanvas(),
+          context: gl,
+          antialias: true,
+        });
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.autoClear = false;
+      },
+      render(gl, args) {
+        const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
+        if (!projectionMatrix || projectionMatrix.length !== 16) return;
+
+        this.camera.projectionMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
+        const selectedId = window.__selectedInitiativeId;
+
+        this.entries.forEach(({ item, sprite }) => {
+          const selected = item.id === selectedId;
+          sprite.material.map = selected ? sprite.userData.selectedTexture : sprite.userData.normalTexture;
+          const scale = selected ? 1.14 : 1;
+          sprite.scale.set(
+            sprite.userData.baseScaleX * scale,
+            sprite.userData.baseScaleY * scale,
+            1,
+          );
+          sprite.material.opacity = selected ? 1 : 0.96;
+        });
+
+        this.renderer.resetState();
+        this.renderer.render(this.scene, this.camera);
+      },
+    };
+
+    window.__selectedInitiativeId = markers[0]?.id || null;
 
     function setSelectedInitiative(id) {
       window.__selectedInitiativeId = id;
-      initiativeMarkerElements.forEach((element, markerId) => {
-        element.classList.toggle('selected', markerId === id);
-      });
+      map.triggerRepaint();
     }
 
     function activateInitiative(item) {
@@ -541,41 +748,29 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         pitch: 68,
         bearing: map.getBearing(),
       });
+      map.triggerRepaint();
     }
 
-    function mountInitiativeMarkers() {
+    function findInitiativeAtPoint(point) {
+      let winner = null;
+      let winnerDistance = 88;
       markers.forEach((item) => {
-        const element = document.createElement('button');
-        element.type = 'button';
-        element.className = 'poi-marker';
-        element.style.setProperty('--poi', item.color);
-        element.setAttribute('aria-label', item.title);
-        element.innerHTML =
-          '<span class="poi-head"><span class="poi-core">' + initiativeIcon(item.marker) + '</span></span>' +
-          '<span class="poi-neck"></span>' +
-          '<span class="poi-base"></span>' +
-          '<span class="poi-title">' + item.title + '</span>';
-
-        element.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          activateInitiative(item);
-        });
-
-        initiativeMarkerElements.set(item.id, element);
-
-        new maplibregl.Marker({
-          element,
-          anchor: 'bottom',
-          pitchAlignment: 'viewport',
-          rotationAlignment: 'viewport',
-        })
-          .setLngLat(item.coordinates)
-          .addTo(map);
+        const projected = map.project(item.coordinates);
+        const dx = projected.x - point.x;
+        const dy = projected.y - point.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < winnerDistance) {
+          winner = item;
+          winnerDistance = distance;
+        }
       });
-
-      if (markers[0]) setSelectedInitiative(markers[0].id);
+      return winner;
     }
+
+    map.on('click', (event) => {
+      const item = findInitiativeAtPoint(event.point);
+      if (item) activateInitiative(item);
+    });
 
     const player3DLayer = {
       id: 'sitequest-player-beaver-3d',
@@ -742,7 +937,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
-      mountInitiativeMarkers();
+      if (!map.getLayer(initiativeFlatLayer.id)) map.addLayer(initiativeFlatLayer);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
