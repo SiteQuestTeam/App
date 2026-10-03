@@ -118,18 +118,79 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       return part;
     }
 
+    function createMicroBumpTexture(kind = 'fur') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 96;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, 96, 96);
+
+      let seed = kind === 'fur' ? 918273 : 192837;
+      const random = () => {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+
+      if (kind === 'fur') {
+        for (let i = 0; i < 760; i += 1) {
+          const x = random() * 96;
+          const y = random() * 96;
+          const length = 2 + random() * 5;
+          const shade = 88 + Math.floor(random() * 78);
+          ctx.strokeStyle = 'rgb(' + shade + ',' + shade + ',' + shade + ')';
+          ctx.globalAlpha = 0.28 + random() * 0.32;
+          ctx.lineWidth = 0.55 + random() * 0.65;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + (random() - 0.5) * 1.5, y + length);
+          ctx.stroke();
+        }
+      } else {
+        for (let y = 0; y < 96; y += 3) {
+          const shade = y % 6 === 0 ? 112 : 142;
+          ctx.globalAlpha = 0.24;
+          ctx.strokeStyle = 'rgb(' + shade + ',' + shade + ',' + shade + ')';
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(96, y + 1);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(kind === 'fur' ? 5 : 4, kind === 'fur' ? 5 : 4);
+      texture.colorSpace = THREE.NoColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    }
+
     function createBeaver3D() {
       const beaver = new THREE.Group();
       beaver.name = 'SiteQuest Beaver';
 
-      // Warm cinematic mascot palette inspired by the approved reference.
-      const fur = material(0x9a552b, 0.92);
-      const furWarm = material(0xb96b35, 0.86);
-      const furLight = material(0xd08a4d, 0.82);
-      const furDark = material(0x53301f, 0.95);
-      const cream = material(0xf2c982, 0.80);
-      const creamLight = material(0xffe4b5, 0.72);
-      const pawMat = material(0x663b25, 0.94);
+      // Warm cinematic mascot palette with shared procedural micro-fur texture.
+      const furBump = createMicroBumpTexture('fur');
+      const fabricBump = createMicroBumpTexture('fabric');
+      const furry = (color, roughness = 0.88, bumpScale = 0.020) =>
+        new THREE.MeshStandardMaterial({
+          color,
+          roughness,
+          metalness: 0,
+          bumpMap: furBump,
+          bumpScale,
+        });
+
+      const fur = furry(0x9a552b, 0.90, 0.022);
+      const furWarm = furry(0xb96b35, 0.86, 0.020);
+      const furLight = furry(0xd08a4d, 0.84, 0.018);
+      const furDark = furry(0x53301f, 0.93, 0.016);
+      const cream = furry(0xf2c982, 0.80, 0.014);
+      const creamLight = furry(0xffe4b5, 0.76, 0.013);
+      const pawMat = furry(0x663b25, 0.92, 0.017);
       const tailMat = material(0x6a422c, 0.96);
       const mouthMat = material(0x2b1010, 0.90);
       const tongueMat = material(0xe77b80, 0.68);
@@ -144,6 +205,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         metalness: 0,
         clearcoat: 0.18,
         clearcoatRoughness: 0.48,
+        bumpMap: fabricBump,
+        bumpScale: 0.010,
       });
       const jacketDark = new THREE.MeshPhysicalMaterial({
         color: 0x1053bd,
@@ -151,6 +214,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         metalness: 0,
         clearcoat: 0.12,
         clearcoatRoughness: 0.52,
+        bumpMap: fabricBump,
+        bumpScale: 0.009,
       });
       const zipperBlue = material(0x0e4fb9, 0.45);
 
@@ -160,6 +225,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         metalness: 0,
         clearcoat: 0.12,
         clearcoatRoughness: 0.55,
+        bumpMap: fabricBump,
+        bumpScale: 0.010,
       });
       const backpackDark = material(0x573bc7, 0.72);
       const backpackTrim = material(0x482aaf, 0.76);
@@ -197,7 +264,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       });
 
       // Stocky body underneath the clothes.
-      beaver.add(mesh(new THREE.SphereGeometry(0.58, 34, 28), fur, [0, 0.76, 0], [0.94, 1.14, 0.80]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.58, 34, 28), fur, [0, 0.78, 0], [0.94, 1.20, 0.80]));
       beaver.add(mesh(new THREE.SphereGeometry(0.34, 30, 24), cream, [0, 0.60, 0.405], [0.80, 0.90, 0.12]));
 
       // Beveled puffer vest panels. Extruded rounded shapes read much closer to a real jacket than spheres.
@@ -292,13 +359,20 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.15, 10), backpackTrim, [0.075, 1.40, -0.695]));
       beaver.add(mesh(new THREE.BoxGeometry(0.17, 0.035, 0.035), backpackTrim, [0, 1.47, -0.695]));
 
-      // Wide padded backpack straps over the shoulders, visible from the front and rear.
-      const leftStrap = mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.50, 12), backpackPurple, [-0.31, 1.06, 0.525], [1.0, 1.0, 0.76], [0.10, 0, -0.16]);
-      const rightStrap = mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.50, 12), backpackPurple, [0.31, 1.06, 0.525], [1.0, 1.0, 0.76], [0.10, 0, 0.16]);
-      beaver.add(leftStrap);
-      beaver.add(rightStrap);
-      beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.060, 0.028), backpackTrim, [-0.31, 0.92, 0.565]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.060, 0.028), backpackTrim, [0.31, 0.92, 0.565]));
+      // Curved padded backpack straps following the shoulders like the reference.
+      const addFrontStrap = (side) => {
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(side * 0.29, 1.28, 0.425),
+          new THREE.Vector3(side * 0.335, 1.15, 0.515),
+          new THREE.Vector3(side * 0.325, 0.99, 0.540),
+          new THREE.Vector3(side * 0.30, 0.86, 0.525),
+        ]);
+        const strap = new THREE.Mesh(new THREE.TubeGeometry(curve, 22, 0.040, 10, false), backpackPurple);
+        beaver.add(strap);
+        beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.055, 0.032), backpackTrim, [side * 0.305, 0.92, 0.565]));
+      };
+      addFrontStrap(-1);
+      addFrontStrap(1);
 
       // Rear vest shoulder pad smooths the neck-to-back transition under the backpack.
       beaver.add(mesh(new THREE.SphereGeometry(0.28, 24, 18), jacketBlue, [0, 1.18, -0.20], [1.05, 0.44, 0.28]));
@@ -313,16 +387,24 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(leftArm);
       beaver.add(rightArm);
 
-      const leftPaw = mesh(new THREE.SphereGeometry(0.15, 22, 18), furLight, [-0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
-      const rightPaw = mesh(new THREE.SphereGeometry(0.15, 22, 18), furLight, [0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
+      const leftPaw = mesh(new THREE.SphereGeometry(0.145, 22, 18), pawMat, [-0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
+      const rightPaw = mesh(new THREE.SphereGeometry(0.145, 22, 18), pawMat, [0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
       beaver.add(leftPaw);
       beaver.add(rightPaw);
+      [-1, 0, 1].forEach((finger) => {
+        beaver.add(mesh(new THREE.SphereGeometry(0.030, 12, 10), furDark, [-0.53 + finger * 0.038, 0.635, 0.365], [0.85, 0.55, 0.80]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.030, 12, 10), furDark, [0.53 + finger * 0.038, 0.635, 0.365], [0.85, 0.55, 0.80]));
+      });
 
       beaver.userData.trotParts = { leftFoot, rightFoot, leftArm, rightArm };
 
       // Large rounded head with cheek volume closer to the reference.
       beaver.add(mesh(new THREE.SphereGeometry(0.52, 40, 32), furWarm, [0, 1.585, 0.000], [1.10, 0.98, 0.94]));
       beaver.add(mesh(new THREE.SphereGeometry(0.31, 30, 24), fur, [0, 1.82, -0.02], [1.18, 0.48, 0.70]));
+      // Three soft rounded crown tufts; no sharp geometry.
+      beaver.add(mesh(new THREE.SphereGeometry(0.070, 16, 12), furWarm, [-0.085, 2.055, 0.02], [0.68, 1.30, 0.52], [0, 0, -0.22]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.075, 16, 12), furWarm, [0, 2.075, 0.025], [0.72, 1.35, 0.54]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.070, 16, 12), furWarm, [0.085, 2.055, 0.02], [0.68, 1.30, 0.52], [0, 0, 0.22]));
       beaver.add(mesh(new THREE.SphereGeometry(0.25, 30, 24), furWarm, [-0.285, 1.46, 0.15], [0.92, 0.86, 0.66]));
       beaver.add(mesh(new THREE.SphereGeometry(0.25, 30, 24), furWarm, [0.285, 1.46, 0.15], [0.92, 0.86, 0.66]));
 
