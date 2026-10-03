@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -13,11 +13,47 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [initialLocationResolved, setInitialLocationResolved] = useState(false);
+  const [initialCenter, setInitialCenter] = useState(KRAKOW_CENTER);
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filter, setFilter] = useState('Wszystkie');
-  const html = useMemo(() => createMapHtml(initiatives), []);
+  const html = useMemo(() => createMapHtml(initiatives, { center: initialCenter }), [initialCenter]);
   const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
+
+  useEffect(() => {
+    let active = true;
+
+    const resolveInitialLocation = async () => {
+      setLocating(true);
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.granted) {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          if (active) {
+            setInitialCenter({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+          }
+        }
+      } catch {
+        // Fall back to the demo center when GPS is unavailable.
+      } finally {
+        if (active) {
+          setLocating(false);
+          setInitialLocationResolved(true);
+        }
+      }
+    };
+
+    resolveInitialLocation();
+    return () => {
+      active = false;
+    };
+  }, []);
   const searchResults = initiatives.filter((item) => {
     const matchesText = `${item.title} ${item.address} ${item.district}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl'));
     const matchesFilter = filter === 'Wszystkie' || item.type === filter;
@@ -57,6 +93,16 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       setLocating(false);
     }
   };
+
+  if (!initialLocationResolved) {
+    return (
+      <View style={styles.locationGate}>
+        <ActivityIndicator color={colors.signal} size="large" />
+        <Text style={styles.locationGateTitle}>Ustalam Twoją pozycję</Text>
+        <Text style={styles.locationGateText}>Mapa uruchomi się od Twojej bieżącej lokalizacji GPS.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -146,6 +192,9 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
+  locationGate: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', paddingHorizontal: 36 },
+  locationGateTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 20, marginTop: 16, textAlign: 'center' },
+  locationGateText: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 7, textAlign: 'center' },
   map: { backgroundColor: '#E8EDF5', flex: 1 },
   loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   mapFallback: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 40 },

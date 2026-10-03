@@ -1,7 +1,30 @@
 node_modules/
 .expo/
 .expo-shared/
+dist/
 *.log
 .DS_Store
 .env
 .env.*
+
+# Android / Gradle local state and build outputs
+.gradle/
+android/.gradle/
+android/local.properties
+android/app/build/
+*.apk
+*.aab
+
+# Deployment configuration must remain outside version control
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+docker-compose.yaml
+docker-compose.*.yml
+docker-compose.*.yaml
+compose.yml
+compose.yaml
+compose.*.yml
+compose.*.yaml
+deploy/
+deployment/
