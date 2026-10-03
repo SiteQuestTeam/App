@@ -66,7 +66,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       const previous = acceptedLocation.current;
       if (!previous) {
         acceptedLocation.current = nextLocation;
-        pushLocationToMap(nextLocation, false);
+        pushLocationToMap(nextLocation, true);
         return;
       }
 
@@ -100,15 +100,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) return;
 
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-
-        if (!active) return;
-        latestLocation.current = location;
-        acceptedLocation.current = location;
-        pushLocationToMap(location, true);
-
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
@@ -128,7 +119,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         });
       } catch {
         // Keep the last known avatar position when GPS is temporarily unavailable.
-        // A future watchPositionAsync update will move it once a valid fix returns.
+        // The map remains usable and the avatar is never reset to a fallback coordinate.
       }
     };
 
