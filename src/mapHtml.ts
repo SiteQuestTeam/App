@@ -57,13 +57,19 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       antialias: true
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors · OpenFreeMap' }), 'bottom-right');
+    map.dragPan.enable();
+    map.scrollZoom.enable();
+    map.touchZoomRotate.enable();
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
     let playerTargetTransform = null;
+    let playerHasFix = false;
     let targetMapBearing = -24;
-    let bearingAnimationFrame = null;
+    let lastAppliedMapBearing = -24;
+    let userInteractingWithMap = false;
+    let headingResumeAt = 0;
     let playerIsMoving = false;
 
     function getPlayerElevation(lng, lat) {
@@ -96,8 +102,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         playerTransform = { ...playerTargetTransform };
       }
     }
-
-    updatePlayerTransform(playerPosition[0], playerPosition[1], true);
 
     function material(color, roughness = 0.72, metalness = 0.02) {
       return new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -417,35 +421,54 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
-      updatePlayerTransform(playerPosition[0], playerPosition[1], true);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
 
     function movePlayer(lng, lat, centerMap = true) {
       playerPosition = [lng, lat];
-      updatePlayerTransform(lng, lat, false);
+      const isFirstFix = !playerHasFix;
+      playerHasFix = true;
+      updatePlayerTransform(lng, lat, isFirstFix);
       map.triggerRepaint();
-      if (centerMap) map.easeTo({ center: playerPosition, duration: 900, pitch: ${compact ? 52 : 66}, zoom:16.3 });
+      if (centerMap) map.easeTo({ center: playerPosition, duration: 700, pitch: ${compact ? 52 : 66}, zoom:16.3 });
     }
     window.movePlayer = movePlayer;
     function shortestBearingDelta(from, to) {
       return ((to - from + 540) % 360) - 180;
     }
 
-    function animateMapBearing() {
-      const current = map.getBearing();
-      const delta = shortestBearingDelta(current, targetMapBearing);
-      if (Math.abs(delta) > 0.05) {
-        map.setBearing(current + delta * 0.12);
-      }
-      bearingAnimationFrame = requestAnimationFrame(animateMapBearing);
-    }
+    const suspendHeadingForGesture = () => {
+      userInteractingWithMap = true;
+      headingResumeAt = Date.now() + 1800;
+    };
+    const resumeHeadingAfterGesture = () => {
+      userInteractingWithMap = false;
+      headingResumeAt = Date.now() + 1200;
+    };
+
+    map.on('dragstart', suspendHeadingForGesture);
+    map.on('dragend', resumeHeadingAfterGesture);
+    map.on('rotatestart', suspendHeadingForGesture);
+    map.on('rotateend', resumeHeadingAfterGesture);
+    map.on('pitchstart', suspendHeadingForGesture);
+    map.on('pitchend', resumeHeadingAfterGesture);
 
     window.setPlayerHeading = (headingDegrees) => {
       if (!Number.isFinite(headingDegrees)) return;
       targetMapBearing = ((headingDegrees % 360) + 360) % 360;
-      if (!bearingAnimationFrame) bearingAnimationFrame = requestAnimationFrame(animateMapBearing);
+
+      if (userInteractingWithMap || Date.now() < headingResumeAt) return;
+
+      const deltaFromApplied = Math.abs(shortestBearingDelta(lastAppliedMapBearing, targetMapBearing));
+      if (deltaFromApplied < 10) return;
+
+      lastAppliedMapBearing = targetMapBearing;
+      map.easeTo({
+        bearing: targetMapBearing,
+        duration: 650,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+      });
     };
     window.setPlayerMoving = (moving) => {
       playerIsMoving = Boolean(moving);
