@@ -24,16 +24,16 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     html,body,#map{width:100%;height:100%;margin:0;overflow:hidden;background:#EAF0F7}
     *{box-sizing:border-box;font-family:Arial,sans-serif}
     #map:after{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,249,252,.06),rgba(23,70,183,.025) 55%,rgba(16,24,40,.05))}
-    .poi-marker{--poi:#2F6BFF;position:relative;width:92px;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;user-select:none;filter:drop-shadow(0 10px 16px rgba(16,24,40,.20));transform-origin:50% 100%;transition:transform .2s ease,filter .2s ease;pointer-events:auto}
-    .poi-marker.selected{transform:scale(1.12);filter:drop-shadow(0 13px 22px rgba(16,24,40,.26))}
-    .poi-head{position:relative;width:82px;height:82px;border-radius:50%;background:#fff;border:4px solid #fff;box-shadow:0 0 0 5px var(--poi),inset 0 0 0 1px rgba(16,24,40,.05);display:grid;place-items:center;overflow:visible}
+    .poi-marker{--poi:#2F6BFF;appearance:none;border:0;padding:0;background:transparent;position:relative;width:106px;height:146px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;user-select:none;filter:drop-shadow(0 12px 18px rgba(16,24,40,.22));transform-origin:50% 100%;transition:transform .2s ease,filter .2s ease;pointer-events:auto;z-index:1}
+    .poi-marker.selected{transform:scale(1.10);filter:drop-shadow(0 15px 24px rgba(16,24,40,.28));z-index:10}
+    .poi-head{position:relative;width:94px;height:94px;border-radius:50%;background:#fff;border:4px solid #fff;box-shadow:0 0 0 5px var(--poi),inset 0 0 0 1px rgba(16,24,40,.05);display:grid;place-items:center;overflow:visible}
     .poi-head:before{content:"";position:absolute;inset:-10px;border:3px solid var(--poi);border-radius:50%;opacity:.18;transform:scale(.88)}
     .poi-marker.selected .poi-head:before{animation:poiPulse 1.7s ease-out infinite}
-    .poi-core{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,color-mix(in srgb,var(--poi) 82%,white 18%),var(--poi));box-shadow:inset 0 6px 11px rgba(255,255,255,.28),inset 0 -6px 10px rgba(16,24,40,.12)}
-    .poi-icon{width:30px;height:30px;display:block;fill:none;stroke:#fff;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
-    .poi-neck{width:15px;height:26px;margin-top:-2px;border-radius:7px;background:linear-gradient(180deg,var(--poi),color-mix(in srgb,var(--poi) 72%,#101828 28%));box-shadow:0 5px 9px rgba(16,24,40,.18)}
-    .poi-base{width:46px;height:15px;margin-top:-2px;border-radius:50%;background:var(--poi);border:3px solid #fff;box-shadow:0 3px 0 color-mix(in srgb,var(--poi) 68%,#101828 32%),0 7px 12px rgba(16,24,40,.18)}
-    .poi-title{position:absolute;top:111px;left:50%;max-width:150px;transform:translateX(-50%) translateY(4px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.97);color:#101828;font-size:10px;font-weight:800;box-shadow:0 7px 18px rgba(16,24,40,.14);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+    .poi-core{position:relative;width:70px;height:70px;border-radius:50%;display:grid;place-items:center;background:var(--poi);box-shadow:inset 0 7px 12px rgba(255,255,255,.24),inset 0 -7px 12px rgba(16,24,40,.13)}
+    .poi-icon{width:34px;height:34px;display:block;fill:none;stroke:#fff;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+    .poi-neck{width:17px;height:29px;margin-top:-2px;border-radius:8px;background:var(--poi);box-shadow:inset 0 -8px 8px rgba(16,24,40,.16),0 6px 10px rgba(16,24,40,.18)}
+    .poi-base{width:54px;height:17px;margin-top:-2px;border-radius:50%;background:var(--poi);border:3px solid #fff;box-shadow:0 4px 0 rgba(16,24,40,.18),0 8px 14px rgba(16,24,40,.20)}
+    .poi-title{position:absolute;top:129px;left:50%;max-width:150px;transform:translateX(-50%) translateY(4px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.97);color:#101828;font-size:10px;font-weight:800;box-shadow:0 7px 18px rgba(16,24,40,.14);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
     .poi-marker.selected .poi-title{opacity:1;transform:translateX(-50%) translateY(0)}
     @keyframes poiPulse{0%{transform:scale(.82);opacity:.30}75%,100%{transform:scale(1.34);opacity:0}}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
@@ -573,6 +573,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           .setLngLat(item.coordinates)
           .addTo(map);
       });
+
+      if (markers[0]) setSelectedInitiative(markers[0].id);
     }
 
     const player3DLayer = {
