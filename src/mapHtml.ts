@@ -426,6 +426,19 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       send('ready');
     });
 
+    function syncAnchoredCamera(duration = 420, forceZoom = false) {
+      if (!playerAnchored || !playerHasFix) return;
+      map.stop();
+      map.easeTo({
+        center: playerPosition,
+        bearing: targetMapBearing,
+        pitch: ${compact ? 52 : 66},
+        zoom: forceZoom ? 16.5 : Math.max(map.getZoom(), 16.3),
+        duration,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+      });
+    }
+
     function movePlayer(lng, lat, centerMap = true) {
       playerPosition = [lng, lat];
       const isFirstFix = !playerHasFix;
@@ -435,18 +448,13 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
       if (isFirstFix || centerMap) {
         playerAnchored = true;
+        userInteractingWithMap = false;
+        headingResumeAt = 0;
         send('anchor', { active: true });
       }
 
       if (playerAnchored) {
-        map.easeTo({
-          center: playerPosition,
-          duration: isFirstFix ? 700 : 420,
-          pitch: ${compact ? 52 : 66},
-          zoom: Math.max(map.getZoom(), 16.3),
-          bearing: targetMapBearing,
-          easing: (t) => 1 - Math.pow(1 - t, 3),
-        });
+        syncAnchoredCamera(isFirstFix ? 700 : 420, isFirstFix);
       }
     }
     window.movePlayer = movePlayer;
@@ -481,36 +489,33 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       if (deltaFromApplied < 10) return;
 
       lastAppliedMapBearing = targetMapBearing;
-      map.easeTo({
-        bearing: targetMapBearing,
-        duration: 650,
-        easing: (t) => 1 - Math.pow(1 - t, 3),
-      });
+      syncAnchoredCamera(520, false);
     };
     window.setPlayerMoving = (moving) => {
       playerIsMoving = Boolean(moving);
       map.triggerRepaint();
     };
     window.focusPlayer = () => {
-      if (!playerHasFix) return;
+      if (!playerHasFix) {
+        send('anchor', { active: false, unavailable: true });
+        return;
+      }
       playerAnchored = true;
       userInteractingWithMap = false;
       headingResumeAt = 0;
       lastAppliedMapBearing = targetMapBearing;
       send('anchor', { active: true });
-      map.stop();
-      map.easeTo({
-        center: playerPosition,
-        zoom: 16.5,
-        pitch: ${compact ? 52 : 66},
-        bearing: targetMapBearing,
-        duration: 700,
-        easing: (t) => 1 - Math.pow(1 - t, 3),
-      });
+      syncAnchoredCamera(700, true);
     };
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
-      if (item) map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
+      if (!item) return;
+      if (playerAnchored) {
+        playerAnchored = false;
+        send('anchor', { active: false });
+      }
+      map.stop();
+      map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
     };
     // Tapping the map never changes the Player's GPS position.
   </script>
