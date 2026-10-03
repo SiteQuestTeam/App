@@ -71,8 +71,8 @@ export const initiatives: Initiative[] = [
   },
   {
     id: 'river',
-    type: 'Szare miejsce',
-    marker: '!',
+    type: 'Zwiad',
+    marker: 'Z',
     color: '#697586',
     title: 'Sprzątanie brzegu Wisły',
     shortTitle: 'Brzeg Wisły',
@@ -89,7 +89,7 @@ export const initiatives: Initiative[] = [
     description:
       'Wspólnie usuniemy odpady z brzegu i oznaczymy miejsca wymagające interwencji miasta.',
     needs: ['Rękawice', 'Worki', '9 osób'],
-    status: 'Nierozwiązane miejsce',
+    status: 'Zwiad terenowy',
   },
 ];
 
