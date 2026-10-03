@@ -68,6 +68,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     let playerHasFix = false;
     let playerAnchored = false;
     let targetMapBearing = -24;
+    let displayedBeaverRotation = Math.PI + 24 * Math.PI / 180;
     let lastAppliedMapBearing = -24;
     let userInteractingWithMap = false;
     let headingResumeAt = 0;
@@ -460,9 +461,16 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         const stride = Math.sin(time * 9.2);
         const trotLift = Math.abs(Math.sin(time * 9.2));
 
-        // Navigation pose: the beaver faces the direction of the map.
-        // The camera therefore sees its backpack/back while the avatar looks "forward".
-        this.beaver.rotation.y = Math.PI - map.getBearing() * Math.PI / 180;
+        // Avatar direction is driven by the phone heading, independently of anchor mode.
+        // Map bearing only changes the camera. After unanchoring, the beaver still keeps
+        // pointing in the direction the user is holding the phone.
+        const desiredBeaverRotation = Math.PI - targetMapBearing * Math.PI / 180;
+        const beaverRotationDelta = Math.atan2(
+          Math.sin(desiredBeaverRotation - displayedBeaverRotation),
+          Math.cos(desiredBeaverRotation - displayedBeaverRotation),
+        );
+        displayedBeaverRotation += beaverRotationDelta * 0.16;
+        this.beaver.rotation.y = displayedBeaverRotation;
 
         if (playerIsMoving) {
           this.beaver.position.y = 0.025 + trotLift * 0.075;
