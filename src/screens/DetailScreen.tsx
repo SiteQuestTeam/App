@@ -24,12 +24,12 @@ export function DetailScreen({ initiative, onBack, role }) {
             <Text style={styles.heroMarkerText}>{initiative.marker}</Text>
           </View>
           <View style={styles.heroCopy}>
-            <StatusChip tone={initiative.type === 'Rajd' ? 'violet' : initiative.type === 'Szare miejsce' ? 'grey' : 'blue'}>{initiative.type}</StatusChip>
+            <StatusChip icon={initiative.type === 'Rajd' ? 'people-outline' : initiative.type === 'Zwiad' ? 'binoculars-outline' : 'flag-outline'} tone={initiative.type === 'Rajd' ? 'violet' : initiative.type === 'Zwiad' ? 'grey' : 'blue'}>{initiative.type}</StatusChip>
             <Text style={styles.heroDistance}>{initiative.distance} od Ciebie</Text>
           </View>
         </View>
 
-        <StatusChip tone={initiative.type === 'Szare miejsce' ? 'grey' : 'green'} icon={initiative.type === 'Szare miejsce' ? 'alert' : 'people'}>
+        <StatusChip tone={initiative.type === 'Zwiad' ? 'grey' : 'green'} icon={initiative.type === 'Zwiad' ? 'binoculars-outline' : 'people'}>
           {initiative.status}
         </StatusChip>
         <Text style={styles.title}>{initiative.title}</Text>
