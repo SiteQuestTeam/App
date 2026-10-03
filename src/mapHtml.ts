@@ -199,21 +199,21 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
       // Stocky body underneath the clothes.
       beaver.add(mesh(new THREE.SphereGeometry(0.58, 34, 28), fur, [0, 0.76, 0], [0.94, 1.14, 0.80]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.37, 30, 24), cream, [0, 0.66, 0.42], [0.86, 1.02, 0.18]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.35, 30, 24), cream, [0, 0.61, 0.42], [0.82, 0.88, 0.18]));
 
       // Puffer vest built from separate padded panels instead of one spherical shell.
       // This keeps the cream belly visible below the vest, like the approved reference.
       const leftVest = mesh(
-        new THREE.SphereGeometry(0.41, 30, 24),
+        new THREE.SphereGeometry(0.39, 30, 24),
         jacketBlue,
-        [-0.205, 0.99, 0.22],
-        [0.74, 0.82, 0.46]
+        [-0.17, 0.98, 0.22],
+        [0.78, 1.02, 0.42]
       );
       const rightVest = mesh(
-        new THREE.SphereGeometry(0.41, 30, 24),
+        new THREE.SphereGeometry(0.39, 30, 24),
         jacketBlue,
-        [0.205, 0.99, 0.22],
-        [0.74, 0.82, 0.46]
+        [0.17, 0.98, 0.22],
+        [0.78, 1.02, 0.42]
       );
       const rearVest = mesh(
         new THREE.SphereGeometry(0.46, 30, 24),
@@ -224,19 +224,20 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(leftVest);
       beaver.add(rightVest);
       beaver.add(rearVest);
+      beaver.add(mesh(new THREE.BoxGeometry(0.62, 0.055, 0.035), jacketDark, [0, 0.72, 0.395]));
 
       // Soft raised collar lobes with a clean V opening.
       beaver.add(mesh(new THREE.SphereGeometry(0.16, 22, 18), jacketBlue, [-0.17, 1.22, 0.21], [1.05, 0.52, 0.50], [0, 0, -0.42]));
       beaver.add(mesh(new THREE.SphereGeometry(0.16, 22, 18), jacketBlue, [0.17, 1.22, 0.21], [1.05, 0.52, 0.50], [0, 0, 0.42]));
 
       // Subtle horizontal quilting on each front panel.
-      [0.79, 0.99].forEach((y) => {
+      [0.82, 1.02].forEach((y) => {
         beaver.add(mesh(new THREE.BoxGeometry(0.285, 0.018, 0.018), jacketDark, [-0.205, y, 0.408]));
         beaver.add(mesh(new THREE.BoxGeometry(0.285, 0.018, 0.018), jacketDark, [0.205, y, 0.408]));
       });
 
       // Front zipper and small pull.
-      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.60, 0.030), zipperBlue, [0, 0.99, 0.417]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.66, 0.030), zipperBlue, [0, 0.99, 0.417]));
       beaver.add(mesh(new THREE.BoxGeometry(0.052, 0.038, 0.026), zipperMetal, [0.025, 1.12, 0.435], [1, 1, 1], [0, 0, -0.15]));
 
       // Slanted padded pockets.
@@ -311,39 +312,41 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.25, 24, 18), furWarm, [0, 1.34, -0.23], [1.10, 0.54, 0.38]));
 
       // Rounded ears with lighter inner pads.
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 26, 20), furDark, [-0.385, 1.815, -0.020], [1.02, 1.02, 0.84]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 26, 20), furDark, [0.385, 1.815, -0.020], [1.02, 1.02, 0.84]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.088, 20, 16), cream, [-0.385, 1.815, 0.058], [1.0, 1.0, 0.52]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.088, 20, 16), cream, [0.385, 1.815, 0.058], [1.0, 1.0, 0.52]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.17, 26, 20), furDark, [-0.39, 1.835, -0.020], [1.02, 1.02, 0.84]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.17, 26, 20), furDark, [0.39, 1.835, -0.020], [1.02, 1.02, 0.84]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.092, 20, 16), cream, [-0.39, 1.835, 0.060], [1.0, 1.0, 0.52]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.092, 20, 16), cream, [0.39, 1.835, 0.060], [1.0, 1.0, 0.52]));
 
-      // Large warm expressive eyes closer to the reference, with strong catchlights.
-      const eyeY = 1.70;
-      const eyeZ = 0.430;
-      const eyeSocketMat = material(0x744326, 0.90);
+      // Open expressive eyes: large white area and warm iris, without heavy socket rings.
+      const eyeY = 1.705;
+      const eyeZ = 0.435;
       [-0.185, 0.185].forEach((x, index) => {
-        beaver.add(mesh(new THREE.SphereGeometry(0.125, 28, 22), eyeSocketMat, [x, eyeY, 0.385], [1.02, 1.18, 0.50]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.112, 32, 26), white, [x, eyeY, eyeZ], [0.98, 1.22, 0.70]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.072, 28, 22), iris, [x + (index === 0 ? 0.010 : -0.010), eyeY - 0.006, 0.505], [1, 1.10, 0.76]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.043, 22, 18), eyeGloss, [x + (index === 0 ? 0.013 : -0.013), eyeY - 0.008, 0.548], [1, 1.06, 0.80]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.017, 12, 10), white, [x - 0.020, eyeY + 0.042, 0.579]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.008, 10, 8), white, [x + 0.019, eyeY - 0.022, 0.581]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.120, 32, 26), white, [x, eyeY, eyeZ], [0.98, 1.28, 0.72]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.076, 28, 22), iris, [x + (index === 0 ? 0.010 : -0.010), eyeY - 0.006, 0.515], [1, 1.12, 0.78]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.045, 22, 18), eyeGloss, [x + (index === 0 ? 0.013 : -0.013), eyeY - 0.008, 0.560], [1, 1.06, 0.82]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.018, 12, 10), white, [x - 0.021, eyeY + 0.045, 0.591]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.008, 10, 8), white, [x + 0.019, eyeY - 0.022, 0.594]));
       });
 
-      // High, soft symmetrical brows for a friendly open expression.
-      beaver.add(mesh(new THREE.SphereGeometry(0.085, 20, 14), furDark, [-0.19, 1.842, 0.455], [1.22, 0.20, 0.24], [0, 0, 0.08]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.085, 20, 14), furDark, [0.19, 1.842, 0.455], [1.22, 0.20, 0.24], [0, 0, -0.08]));
+      // Two-piece brow arches: friendly and clearly separated from the forehead.
+      const browPart = (x, y, z, sx, rz) =>
+        beaver.add(mesh(new THREE.SphereGeometry(0.060, 18, 12), furDark, [x, y, z], [sx, 0.22, 0.24], [0, 0, rz]));
+      browPart(-0.155, 1.842, 0.462, 1.18, 0.08);
+      browPart(-0.235, 1.858, 0.458, 0.88, -0.18);
+      browPart(0.155, 1.842, 0.462, 1.18, -0.08);
+      browPart(0.235, 1.858, 0.458, 0.88, 0.18);
 
       // Compact plush muzzle: symmetrical and slightly higher to avoid a heavy lower face.
-      beaver.add(mesh(new THREE.SphereGeometry(0.226, 34, 28), creamLight, [-0.142, 1.495, 0.515], [1.08, 0.80, 0.68]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.226, 34, 28), creamLight, [0.142, 1.495, 0.515], [1.08, 0.80, 0.68]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.220, 34, 28), creamLight, [-0.140, 1.495, 0.520], [1.08, 0.76, 0.66]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.220, 34, 28), creamLight, [0.140, 1.495, 0.520], [1.08, 0.76, 0.66]));
 
       // Rounded glossy nose, centered tightly above the muzzle.
       beaver.add(mesh(new THREE.SphereGeometry(0.108, 30, 24), noseMat, [0, 1.590, 0.675], [1.32, 0.88, 0.78]));
       beaver.add(mesh(new THREE.SphereGeometry(0.020, 12, 10), white, [-0.030, 1.624, 0.750], [1.0, 0.68, 0.38]));
 
       // Clean open smile with smaller teeth and tongue so the expression stays friendly rather than exaggerated.
-      beaver.add(mesh(new THREE.SphereGeometry(0.190, 30, 24), mouthMat, [0, 1.355, 0.545], [1.08, 0.58, 0.34]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.110, 24, 20), tongueMat, [0, 1.310, 0.628], [1.02, 0.42, 0.24]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.178, 30, 24), mouthMat, [0, 1.360, 0.548], [1.06, 0.54, 0.32]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.096, 24, 20), tongueMat, [0, 1.314, 0.626], [1.00, 0.38, 0.22]));
       beaver.add(mesh(new THREE.BoxGeometry(0.076, 0.145, 0.056), tooth, [-0.041, 1.430, 0.680], [1, 1, 1], [0, 0, 0.018]));
       beaver.add(mesh(new THREE.BoxGeometry(0.076, 0.145, 0.056), tooth, [0.041, 1.430, 0.680], [1, 1, 1], [0, 0, -0.018]));
 
