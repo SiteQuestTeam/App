@@ -265,11 +265,26 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
         </View>
         {showFilters && (
           <View style={styles.filters}>
-            {['Wszystkie', 'Misja', 'Rajd', 'Szare miejsce'].map((value) => (
-              <Pressable key={value} onPress={() => setFilter(value)} style={[styles.filterChip, filter === value && styles.filterChipActive]}>
-                <Text style={[styles.filterChipText, filter === value && styles.filterChipTextActive]}>{value}</Text>
-              </Pressable>
-            ))}
+            {[
+              { value: 'Wszystkie', icon: 'apps-outline' },
+              { value: 'Misja', icon: 'flag-outline' },
+              { value: 'Rajd', icon: 'people-outline' },
+              { value: 'Zwiad', icon: 'binoculars-outline' },
+            ].map(({ value, icon }) => {
+              const active = filter === value;
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  key={value}
+                  onPress={() => setFilter(value)}
+                  style={[styles.filterChip, active && styles.filterChipActive]}
+                >
+                  <Ionicons color={active ? colors.surface : colors.muted} name={icon} size={15} />
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{value}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
         {query.length > 0 && (
@@ -319,7 +334,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
         <View style={[styles.quickMarker, { backgroundColor: selected.color }]}><Text style={styles.quickMarkerText}>{selected.marker}</Text></View>
         <View style={styles.quickCopy}>
           <View style={styles.quickTop}>
-            <StatusChip tone={selected.type === 'Rajd' ? 'violet' : selected.type === 'Szare miejsce' ? 'grey' : 'blue'}>{selected.type}</StatusChip>
+            <StatusChip icon={selected.type === 'Rajd' ? 'people-outline' : selected.type === 'Zwiad' ? 'binoculars-outline' : 'flag-outline'} tone={selected.type === 'Rajd' ? 'violet' : selected.type === 'Zwiad' ? 'grey' : 'blue'}>{selected.type}</StatusChip>
             <Text style={styles.quickDistance}>{selected.distance}</Text>
           </View>
           <Text numberOfLines={1} style={styles.quickTitle}>{selected.title}</Text>
@@ -349,7 +364,7 @@ const styles = StyleSheet.create({
   filterButton: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 14, height: 42, justifyContent: 'center', width: 42 },
   filterButtonActive: { backgroundColor: colors.signal },
   filters: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7, padding: 9, ...shadow },
-  filterChip: { backgroundColor: colors.greySoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 },
+  filterChip: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 999, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
   filterChipActive: { backgroundColor: colors.signal },
   filterChipText: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11 },
   filterChipTextActive: { color: colors.surface },
