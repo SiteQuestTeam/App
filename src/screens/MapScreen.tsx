@@ -135,19 +135,26 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
           setLocationIssue(null);
         }
 
-        // Seed from a fresh cached fix so the avatar can appear immediately without
-        // issuing a separate foreground "locate me" request.
-        const lastKnown = await Location.getLastKnownPositionAsync({
-          maxAge: 15000,
-          requiredAccuracy: 50,
+        // Fast-first bootstrap: use a recent cached/network fix immediately,
+        // then let the continuous watcher refine the avatar in the background.
+        const bootstrapLocation = (location) => {
+          if (!active || !location || acceptedLocation.current) return;
+          const accuracy = Number(location.coords.accuracy ?? Infinity);
+          if (!Number.isFinite(accuracy) || accuracy > 100) return;
+
+          latestLocation.current = location;
+          acceptedLocation.current = location;
+          pushLocationToMap(location, true);
+        };
+
+        const lastKnownPromise = Location.getLastKnownPositionAsync({
+          maxAge: 60000,
+          requiredAccuracy: 100,
         });
-        if (active && lastKnown) {
-          acceptMeaningfulMovement(lastKnown);
-        }
 
         locationSubscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.BestForNavigation,
+            accuracy: Location.Accuracy.High,
             distanceInterval: 1,
             timeInterval: 1000,
             mayShowUserSettingsDialog: true,
@@ -163,6 +170,16 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
             if (active) setLocationIssue('signal');
           },
         );
+
+        lastKnownPromise
+          .then((lastKnown) => bootstrapLocation(lastKnown))
+          .catch(() => {});
+
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+          .then((quickFix) => bootstrapLocation(quickFix))
+          .catch(() => {});
 
         headingSubscription = await Location.watchHeadingAsync(
           (heading) => {
