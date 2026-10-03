@@ -134,27 +134,6 @@ export function ProfileScreen({ onNavigate, onCamera, role, accountId, onAccount
   return (
     <TabShell active="profile" kicker="Wersja demonstracyjna" onNavigate={onNavigate} role={role} title={profileTab === 'rewards' ? 'Nagrody' : 'Profil'}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profileTabs}>
-          {[
-            ['profile', 'Profil', 'person-outline'],
-            ['rewards', 'Nagrody', 'gift-outline'],
-          ].map(([value, label, icon]) => {
-            const active = profileTab === value;
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                key={value}
-                onPress={() => setProfileTab(value)}
-                style={[styles.profileTab, active && styles.profileTabActive]}
-              >
-                <Ionicons color={active ? colors.surface : colors.muted} name={icon} size={17} />
-                <Text style={[styles.profileTabText, active && styles.profileTabTextActive]}>{label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
         {profileTab === 'profile' ? (
           <>
             <View style={styles.profileCard}>
@@ -171,6 +150,7 @@ export function ProfileScreen({ onNavigate, onCamera, role, accountId, onAccount
               <ProfileRow icon="camera" label="Aparat na żywo" onPress={onCamera} />
               <ProfileRow icon="time" label="Historia działań" onPress={() => Alert.alert('Historia działań', 'Tutaj pojawią się potwierdzone Misje, Rajdy i Zwiady.')} />
               <ProfileRow icon="ribbon" label="Odznaki i rezultaty" onPress={() => Alert.alert('Odznaki i rezultaty', 'W wersji demonstracyjnej masz odznakę „Pierwszy krok”.')} />
+              <ProfileRow icon="gift" label="Nagrody" onPress={() => setProfileTab('rewards')} />
               <ProfileRow
                 icon="settings"
                 label="Ustawienia konta"
@@ -191,13 +171,23 @@ export function ProfileScreen({ onNavigate, onCamera, role, accountId, onAccount
             <View style={styles.aboutCard}><Brand /><Text style={styles.aboutText}>Prototyp klikalnego frontendu. Dane i działania są przykładowe i nie są wysyłane do backendu.</Text></View>
           </>
         ) : role === 'ngo' ? (
-          <View style={styles.rewardsNgoCard}>
+          <>
+            <Pressable onPress={() => setProfileTab('profile')} style={styles.rewardsBack}>
+              <Ionicons color={colors.signal} name="arrow-back" size={18} />
+              <Text style={styles.rewardsBackText}>Wróć do profilu</Text>
+            </Pressable>
+            <View style={styles.rewardsNgoCard}>
             <View style={styles.rewardsNgoIcon}><Ionicons color={colors.violet} name="gift-outline" size={30} /></View>
             <Text style={styles.rewardsNgoTitle}>Nagrody są przypisane do kont mieszkańców</Text>
             <Text style={styles.rewardsNgoText}>Konta organizacji mogą w przyszłości sponsorować nagrody. W demo przełącz konto w Ustawieniach konta, aby zobaczyć katalog mieszkańca.</Text>
-          </View>
+            </View>
+          </>
         ) : (
           <>
+            <Pressable onPress={() => setProfileTab('profile')} style={styles.rewardsBack}>
+              <Ionicons color={colors.signal} name="arrow-back" size={18} />
+              <Text style={styles.rewardsBackText}>Wróć do profilu</Text>
+            </Pressable>
             <View style={styles.rewardsHero}>
               <View style={styles.rewardsHeroTop}>
                 <View>
@@ -335,11 +325,8 @@ const styles = StyleSheet.create({
   profileMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, marginBottom: 20, marginTop: 5 },
   accountBadge: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 999, flexDirection: 'row', gap: 7, marginTop: 2, paddingHorizontal: 12, paddingVertical: 8 },
   accountBadgeText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11 },
-  profileTabs: { backgroundColor: colors.greySoft, borderRadius: 16, flexDirection: 'row', gap: 4, marginBottom: 14, padding: 4 },
-  profileTab: { alignItems: 'center', borderRadius: 13, flex: 1, flexDirection: 'row', gap: 7, justifyContent: 'center', minHeight: 44 },
-  profileTabActive: { backgroundColor: colors.ink },
-  profileTabText: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 12 },
-  profileTabTextActive: { color: colors.surface },
+  rewardsBack: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 7, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 9 },
+  rewardsBackText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
   rewardsHero: { backgroundColor: colors.ink, borderRadius: 24, padding: 20 },
   rewardsHeroTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   rewardsEyebrow: { color: '#A997FF', fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 1 },
