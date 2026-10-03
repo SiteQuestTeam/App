@@ -134,11 +134,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.52, 22, 18), fur, [0, 0.73, 0], [0.88, 1.18, 0.72]));
       beaver.add(mesh(new THREE.SphereGeometry(0.34, 20, 16), cream, [0, 0.76, 0.38], [0.78, 1.04, 0.22]));
 
-      // Brand vest as an actual 3D shell.
-      beaver.add(mesh(new THREE.SphereGeometry(0.54, 22, 18, 0, Math.PI * 2, 0.42, 1.45), blue, [0, 0.73, 0.03], [0.91, 1.08, 0.76]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.035, 20), white, [0, 0.82, 0.47], [1, 1, 1], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.10, 0.025, 0.025), blue, [0, 0.82, 0.493]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.10, 0.025), blue, [0, 0.82, 0.493]));
+      // Natural torso — no backpack, vest or shell around the avatar.
+      beaver.add(mesh(new THREE.SphereGeometry(0.30, 22, 18), furLight, [0, 0.98, 0.18], [0.88, 0.82, 0.38]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.10, 18, 14), cream, [0, 1.02, 0.46], [1.15, 0.75, 0.35]));
 
       // Arms.
       beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [-0.44, 0.79, 0.08], [1, 1, 1], [0, 0, -0.36]));
@@ -179,9 +177,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         }
       });
 
-      // SiteQuest neck accent.
-      beaver.add(mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 28), deep, [0, 1.18, 0.02], [1, 1, 0.78], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.055, 12, 10), violet, [0.29, 1.20, 0.34]));
+      // Subtle SiteQuest badge on the chest, without clothing or backpack.
+      beaver.add(mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.022, 20), blue, [0, 1.03, 0.515], [1, 1, 1], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.020, 10, 8), white, [0, 1.03, 0.532]));
 
       // Vertical player beacon: visible above buildings without surrounding the avatar.
       const beacon = new THREE.Group();
@@ -372,9 +370,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const item = markers.find((marker) => marker.id === id);
       if (item) map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
     };
-    map.on('click', (event) => {
-      ${compact ? '' : "movePlayer(event.lngLat.lng,event.lngLat.lat,false);send('position',{longitude:event.lngLat.lng,latitude:event.lngLat.lat});"}
-    });
+    // Tapping the map never changes the Player's GPS position.
   </script>
 </body>
 </html>`;
