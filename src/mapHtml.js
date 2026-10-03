@@ -84,8 +84,43 @@ export function createMapHtml(initiatives, options = {}) {
       new maplibregl.Marker({ element, anchor: 'bottom' }).setLngLat(item.coordinates).addTo(map);
     });
 
+    function tuneBaseStyle() {
+      const layers = map.getStyle()?.layers || [];
+      layers.forEach((layer) => {
+        try {
+          const sourceLayer = String(layer['source-layer'] || '').toLowerCase();
+          const id = String(layer.id || '').toLowerCase();
+
+          if (layer.type === 'background') {
+            map.setPaintProperty(layer.id, 'background-color', '#EAF0F7');
+          }
+          if (layer.type === 'fill' && (sourceLayer.includes('water') || id.includes('water'))) {
+            map.setPaintProperty(layer.id, 'fill-color', '#CFE5FA');
+            map.setPaintProperty(layer.id, 'fill-opacity', 0.96);
+          }
+          if (layer.type === 'fill' && (sourceLayer.includes('park') || id.includes('park'))) {
+            map.setPaintProperty(layer.id, 'fill-color', '#DCEFE5');
+          }
+          if (layer.type === 'line' && (sourceLayer.includes('transportation') || sourceLayer.includes('road') || id.includes('road'))) {
+            map.setPaintProperty(layer.id, 'line-color', '#FFFFFF');
+            map.setPaintProperty(layer.id, 'line-opacity', 0.94);
+          }
+          if (layer.type === 'symbol' && layer.layout?.['text-field']) {
+            map.setPaintProperty(layer.id, 'text-color', '#40526A');
+            map.setPaintProperty(layer.id, 'text-halo-color', '#F7F9FC');
+            map.setPaintProperty(layer.id, 'text-halo-width', 1.1);
+          }
+        } catch {
+          // Not every layer exposes every paint property.
+        }
+      });
+    }
+
     map.on('load', () => {
-      const sourceId = map.getSource('openmaptiles') ? 'openmaptiles' : null;
+      tuneBaseStyle();
+      const sourceId = map.getSource('openmaptiles')
+        ? 'openmaptiles'
+        : Object.keys(map.getStyle().sources || {}).find((id) => map.getSource(id)?.type === 'vector');
       if (sourceId && !map.getLayer('sitequest-3d-buildings')) {
         const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol');
         map.addLayer({
