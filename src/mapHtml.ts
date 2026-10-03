@@ -668,29 +668,39 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
             item.coordinates,
             getInitiativeElevation(item.coordinates[0], item.coordinates[1]),
           );
-          const meters = mercator.meterInMercatorCoordinateUnits();
+          const meterScale = mercator.meterInMercatorCoordinateUnits();
           const normalTexture = createInitiativeTexture(item, false);
           const selectedTexture = createInitiativeTexture(item, true);
 
-          const material = new THREE.SpriteMaterial({
+          const material = new THREE.MeshBasicMaterial({
             map: normalTexture,
             transparent: true,
             depthTest: false,
             depthWrite: false,
+            side: THREE.DoubleSide,
+            toneMapped: false,
           });
-          const sprite = new THREE.Sprite(material);
-          sprite.position.set(mercator.x, mercator.y, mercator.z);
-          sprite.scale.set(meters * 30, meters * 45, 1);
-          sprite.center.set(0.5, 0.05);
-          sprite.renderOrder = 40 + index;
-          sprite.userData.itemId = item.id;
-          sprite.userData.normalTexture = normalTexture;
-          sprite.userData.selectedTexture = selectedTexture;
-          sprite.userData.baseScaleX = meters * 30;
-          sprite.userData.baseScaleY = meters * 45;
-          this.scene.add(sprite);
 
-          return { item, sprite };
+          // A real flat model: one textured plane, no volume/depth.
+          // Geometry uses local XY so after the MapLibre X rotation it stands upright.
+          const plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(1, 1.50),
+            material,
+          );
+          plane.matrixAutoUpdate = false;
+          plane.frustumCulled = false;
+          plane.renderOrder = 80 + index;
+
+          plane.userData.itemId = item.id;
+          plane.userData.normalTexture = normalTexture;
+          plane.userData.selectedTexture = selectedTexture;
+          plane.userData.mercator = mercator;
+          plane.userData.meterScale = meterScale;
+          plane.userData.baseWidthMeters = 34;
+          plane.userData.baseHeightMeters = 51;
+
+          this.scene.add(plane);
+          return { item, plane };
         });
 
         this.renderer = new THREE.WebGLRenderer({
@@ -705,21 +715,53 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
         if (!projectionMatrix || projectionMatrix.length !== 16) return;
 
-        this.camera.projectionMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
-        const selectedId = window.__selectedInitiativeId;
+        const mapMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
+        this.camera.projectionMatrix.copy(mapMatrix);
 
-        this.entries.forEach(({ item, sprite }) => {
+        const selectedId = window.__selectedInitiativeId;
+        const bearingRadians = THREE.MathUtils.degToRad(this.map.getBearing());
+
+        this.entries.forEach(({ item, plane }) => {
           const selected = item.id === selectedId;
-          sprite.material.map = selected ? sprite.userData.selectedTexture : sprite.userData.normalTexture;
-          const scale = selected ? 1.14 : 1;
-          sprite.scale.set(
-            sprite.userData.baseScaleX * scale,
-            sprite.userData.baseScaleY * scale,
-            1,
+          const texture = selected ? plane.userData.selectedTexture : plane.userData.normalTexture;
+          if (plane.material.map !== texture) {
+            plane.material.map = texture;
+            plane.material.needsUpdate = true;
+          }
+
+          const selectedScale = selected ? 1.16 : 1;
+          const mercator = plane.userData.mercator;
+          const meterScale = plane.userData.meterScale;
+
+          // Same world-space transform pattern as the previously visible 3D points:
+          // fixed Mercator position + meter-based scale + MapLibre axis conversion.
+          // The local Y rotation counteracts map bearing so the flat model faces the camera.
+          const rotationX = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(1, 0, 0),
+            Math.PI / 2,
           );
-          sprite.material.opacity = selected ? 1 : 0.96;
+          const faceCamera = new THREE.Matrix4().makeRotationAxis(
+            new THREE.Vector3(0, 1, 0),
+            -bearingRadians,
+          );
+
+          const modelMatrix = new THREE.Matrix4()
+            .makeTranslation(mercator.x, mercator.y, mercator.z)
+            .scale(new THREE.Vector3(
+              meterScale * plane.userData.baseWidthMeters * selectedScale,
+              -meterScale * plane.userData.baseHeightMeters * selectedScale,
+              meterScale * selectedScale,
+            ))
+            .multiply(rotationX)
+            .multiply(faceCamera);
+
+          plane.matrix.copy(modelMatrix);
+          plane.material.opacity = selected ? 1 : 0.98;
         });
 
+        // POIs are UI-like world objects: draw them over building depth so they cannot disappear
+        // inside 3D extrusions while still remaining fixed to geographic coordinates.
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
       },
@@ -753,7 +795,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     function findInitiativeAtPoint(point) {
       let winner = null;
-      let winnerDistance = 88;
+      let winnerDistance = 110;
       markers.forEach((item) => {
         const projected = map.project(item.coordinates);
         const dx = projected.x - point.x;
