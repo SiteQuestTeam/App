@@ -1,0 +1,39 @@
+name: Beaver visual validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/mapHtml.ts'
+      - 'scripts/render-beaver.mjs'
+      - '.github/workflows/beaver-validation.yml'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Render beaver validation views
+        run: node scripts/render-beaver.mjs
+
+      - name: Upload beaver validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beaver-validation
+          path: artifacts/beaver-validation
+          if-no-files-found: error
+          retention-days: 7
