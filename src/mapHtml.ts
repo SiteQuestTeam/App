@@ -120,148 +120,241 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const beaver = new THREE.Group();
       beaver.name = 'SiteQuest Beaver';
 
-      // Premium mascot palette: warm fur, creamy muzzle/belly and glossy facial details.
-      const fur = material(0x9b5b32, 0.92);
-      const furMid = material(0xb86f3c, 0.88);
-      const furLight = material(0xcf8950, 0.84);
-      const furDark = material(0x56321f, 0.94);
-      const cream = material(0xf4c982, 0.82);
-      const creamLight = material(0xffe5ae, 0.78);
-      const pawMat = material(0x68402a, 0.92);
-      const tailMat = material(0x65402c, 0.96);
-      const tailLine = material(0x4b2d20, 0.98);
-      const mouthMat = material(0x2c1110, 0.90);
-      const tongueMat = material(0xe97f83, 0.70);
-      const tooth = material(0xfffbef, 0.34);
-      const white = material(0xffffff, 0.30);
-      const iris = material(0x8b4d20, 0.35);
-      const pupil = material(0x130d0a, 0.24);
-      const blue = material(0x2f6bff, 0.50);
+      // Warm cinematic mascot palette inspired by the approved reference.
+      const fur = material(0x9a552b, 0.92);
+      const furWarm = material(0xb96b35, 0.86);
+      const furLight = material(0xd08a4d, 0.82);
+      const furDark = material(0x53301f, 0.95);
+      const cream = material(0xf2c982, 0.80);
+      const creamLight = material(0xffe4b5, 0.72);
+      const pawMat = material(0x663b25, 0.94);
+      const tailMat = material(0x6a422c, 0.96);
+      const tailLine = material(0x4b2c1e, 0.99);
+      const mouthMat = material(0x2b1010, 0.90);
+      const tongueMat = material(0xe77b80, 0.68);
+      const tooth = material(0xfffbef, 0.30);
+      const white = material(0xffffff, 0.28);
+      const iris = material(0x95531f, 0.34);
+      const cheekMat = material(0xe89d83, 0.82);
 
-      const glossy = (color, roughness = 0.20) =>
+      const jacketBlue = new THREE.MeshPhysicalMaterial({
+        color: 0x1768e7,
+        roughness: 0.55,
+        metalness: 0,
+        clearcoat: 0.18,
+        clearcoatRoughness: 0.48,
+      });
+      const jacketDark = new THREE.MeshPhysicalMaterial({
+        color: 0x1053bd,
+        roughness: 0.62,
+        metalness: 0,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.52,
+      });
+      const zipperBlue = material(0x0e4fb9, 0.45);
+      const zipperMetal = material(0xd8e4ff, 0.34, 0.22);
+
+      const backpackPurple = new THREE.MeshPhysicalMaterial({
+        color: 0x7657ff,
+        roughness: 0.60,
+        metalness: 0,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.55,
+      });
+      const backpackDark = material(0x573bc7, 0.72);
+      const backpackTrim = material(0x482aaf, 0.76);
+
+      const glossy = (color, roughness = 0.18) =>
         new THREE.MeshPhysicalMaterial({
           color,
           roughness,
           metalness: 0,
-          clearcoat: 0.65,
-          clearcoatRoughness: 0.18,
+          clearcoat: 0.72,
+          clearcoatRoughness: 0.14,
         });
 
-      const noseMat = glossy(0x2a1711, 0.26);
-      const eyeGloss = glossy(0x1a0f0b, 0.12);
+      const noseMat = glossy(0x2b1812, 0.24);
+      const eyeGloss = glossy(0x130d0a, 0.10);
 
-      // Tail: broad paddle with a readable cross-hatched texture.
+      // Broad beaver paddle tail. It sits low enough to remain visible behind the backpack.
       const tail = mesh(
-        new THREE.SphereGeometry(0.48, 28, 22),
+        new THREE.SphereGeometry(0.49, 30, 24),
         tailMat,
-        [-0.52, 0.48, -0.30],
-        [0.68, 1.28, 0.18],
-        [0.08, 0.08, -0.52]
+        [-0.49, 0.48, -0.36],
+        [0.70, 1.30, 0.18],
+        [0.08, 0.08, -0.50]
       );
       beaver.add(tail);
 
-      [-0.16, 0.00, 0.16].forEach((offset) => {
+      [-0.18, 0.00, 0.18].forEach((offset) => {
         beaver.add(mesh(
-          new THREE.CylinderGeometry(0.012, 0.012, 0.62, 8),
+          new THREE.CylinderGeometry(0.012, 0.012, 0.66, 8),
           tailLine,
-          [-0.52 + offset * 0.55, 0.49 + offset * 0.38, -0.206],
+          [-0.49 + offset * 0.52, 0.49 + offset * 0.40, -0.266],
           [1, 1, 1],
-          [Math.PI / 2, 0.28, -0.52]
+          [Math.PI / 2, 0.30, -0.50]
         ));
         beaver.add(mesh(
-          new THREE.CylinderGeometry(0.012, 0.012, 0.62, 8),
+          new THREE.CylinderGeometry(0.012, 0.012, 0.66, 8),
           tailLine,
-          [-0.52 + offset * 0.55, 0.49 - offset * 0.38, -0.207],
+          [-0.49 + offset * 0.52, 0.49 - offset * 0.40, -0.267],
           [1, 1, 1],
-          [Math.PI / 2, -0.28, -0.52]
+          [Math.PI / 2, -0.30, -0.50]
         ));
       });
 
-      // Feet: larger, softer and more mascot-like.
-      const leftFoot = mesh(new THREE.SphereGeometry(0.25, 24, 18), pawMat, [-0.25, 0.16, 0.08], [1.18, 0.58, 1.42]);
-      const rightFoot = mesh(new THREE.SphereGeometry(0.25, 24, 18), pawMat, [0.25, 0.16, 0.08], [1.18, 0.58, 1.42]);
+      // Big soft feet and toes.
+      const leftFoot = mesh(new THREE.SphereGeometry(0.255, 26, 20), pawMat, [-0.26, 0.16, 0.08], [1.22, 0.58, 1.45]);
+      const rightFoot = mesh(new THREE.SphereGeometry(0.255, 26, 20), pawMat, [0.26, 0.16, 0.08], [1.22, 0.58, 1.45]);
       beaver.add(leftFoot);
       beaver.add(rightFoot);
 
-      [-0.31, -0.24, -0.17, 0.17, 0.24, 0.31].forEach((x) => {
-        beaver.add(mesh(new THREE.SphereGeometry(0.060, 14, 10), furDark, [x, 0.12, 0.29], [1.0, 0.56, 0.88]));
+      [-0.33, -0.26, -0.19, 0.19, 0.26, 0.33].forEach((x) => {
+        beaver.add(mesh(new THREE.SphereGeometry(0.060, 16, 12), furDark, [x, 0.115, 0.30], [1.0, 0.58, 0.90]));
       });
 
-      // Rounded body and soft belly.
-      beaver.add(mesh(new THREE.SphereGeometry(0.56, 32, 26), fur, [0, 0.78, 0], [0.90, 1.20, 0.76]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.40, 30, 24), cream, [0, 0.78, 0.40], [0.82, 1.08, 0.20]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.30, 28, 22), furMid, [0, 1.07, 0.16], [0.92, 0.80, 0.42]));
+      // Stocky body underneath the clothes.
+      beaver.add(mesh(new THREE.SphereGeometry(0.56, 34, 28), fur, [0, 0.80, 0], [0.92, 1.20, 0.78]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.39, 30, 24), cream, [0, 0.74, 0.41], [0.82, 1.04, 0.20]));
 
-      // Arms with rounded paws. References are kept for trot animation.
-      const leftArm = mesh(new THREE.CapsuleGeometry(0.11, 0.30, 8, 16), fur, [-0.47, 0.89, 0.10], [1.0, 1.0, 1.0], [0, 0, -0.38]);
-      const rightArm = mesh(new THREE.CapsuleGeometry(0.11, 0.30, 8, 16), fur, [0.47, 0.89, 0.10], [1.0, 1.0, 1.0], [0, 0, 0.38]);
+      // Puffer jacket shell: rounded body, collar and visible quilting.
+      const jacketBody = mesh(
+        new THREE.SphereGeometry(0.555, 34, 28),
+        jacketBlue,
+        [0, 0.88, 0.015],
+        [0.95, 0.97, 0.80]
+      );
+      beaver.add(jacketBody);
+
+      // Open V around the neck exposing a small warm chest patch.
+      beaver.add(mesh(new THREE.SphereGeometry(0.23, 24, 18), cream, [0, 1.18, 0.425], [0.72, 0.58, 0.18]));
+
+      // Raised puffer collar.
+      beaver.add(mesh(new THREE.TorusGeometry(0.35, 0.075, 12, 36, Math.PI * 1.24), jacketBlue, [0, 1.19, 0.04], [1.0, 0.72, 1.0], [Math.PI / 2, 0, -0.38]));
+      beaver.add(mesh(new THREE.TorusGeometry(0.35, 0.075, 12, 36, Math.PI * 1.24), jacketBlue, [0, 1.19, 0.04], [1.0, 0.72, 1.0], [Math.PI / 2, 0, Math.PI + 0.38]));
+
+      // Puffer quilting — full rings read from front and from the rear.
+      [0.58, 0.80, 1.02].forEach((y, index) => {
+        const ring = mesh(
+          new THREE.TorusGeometry(0.445 - index * 0.012, 0.015, 8, 34),
+          jacketDark,
+          [0, y, 0.005],
+          [1.0, 1.0, 0.82],
+          [Math.PI / 2, 0, 0]
+        );
+        beaver.add(ring);
+      });
+
+      // Front zipper with a metallic pull.
+      beaver.add(mesh(new THREE.BoxGeometry(0.030, 0.72, 0.036), zipperBlue, [0, 0.87, 0.455]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.060, 0.045, 0.030), zipperMetal, [0.030, 1.105, 0.478], [1, 1, 1], [0, 0, -0.18]));
+
+      // Puffy side pockets.
+      beaver.add(mesh(new THREE.SphereGeometry(0.17, 20, 16), jacketDark, [-0.25, 0.63, 0.405], [1.00, 0.55, 0.22], [0, 0, -0.25]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.17, 20, 16), jacketDark, [0.25, 0.63, 0.405], [1.00, 0.55, 0.22], [0, 0, 0.25]));
+
+      // Large purple backpack inspired by the reference, with rounded body and front pocket.
+      const backpackBody = mesh(
+        new THREE.SphereGeometry(0.42, 30, 24),
+        backpackPurple,
+        [0, 0.92, -0.49],
+        [0.82, 1.06, 0.34]
+      );
+      beaver.add(backpackBody);
+      beaver.add(mesh(
+        new THREE.SphereGeometry(0.29, 26, 20),
+        backpackDark,
+        [0, 0.73, -0.585],
+        [0.84, 0.70, 0.20]
+      ));
+
+      // Backpack top seam and small handle.
+      beaver.add(mesh(new THREE.TorusGeometry(0.19, 0.022, 8, 24, Math.PI), backpackTrim, [0, 1.30, -0.51], [1, 1, 1], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.TorusGeometry(0.105, 0.025, 8, 20, Math.PI), backpackTrim, [0, 1.34, -0.51], [1, 1.15, 1], [Math.PI / 2, 0, 0]));
+
+      // Wide padded backpack straps over the shoulders, visible from the front and rear.
+      const leftStrap = mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.62, 12), backpackPurple, [-0.29, 1.02, 0.01], [1.0, 1.0, 0.72], [0.08, 0, -0.22]);
+      const rightStrap = mesh(new THREE.CylinderGeometry(0.048, 0.052, 0.62, 12), backpackPurple, [0.29, 1.02, 0.01], [1.0, 1.0, 0.72], [0.08, 0, 0.22]);
+      beaver.add(leftStrap);
+      beaver.add(rightStrap);
+      beaver.add(mesh(new THREE.BoxGeometry(0.075, 0.070, 0.030), backpackTrim, [-0.30, 0.88, 0.22]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.075, 0.070, 0.030), backpackTrim, [0.30, 0.88, 0.22]));
+
+      // Arms: chunky cylinders + round paws, compatible with trot animation.
+      const leftArm = mesh(new THREE.CylinderGeometry(0.105, 0.125, 0.40, 16), fur, [-0.50, 0.88, 0.08], [1, 1, 1], [0, 0, -0.34]);
+      const rightArm = mesh(new THREE.CylinderGeometry(0.105, 0.125, 0.40, 16), fur, [0.50, 0.88, 0.08], [1, 1, 1], [0, 0, 0.34]);
       beaver.add(leftArm);
       beaver.add(rightArm);
 
-      const leftPaw = mesh(new THREE.SphereGeometry(0.145, 20, 16), furLight, [-0.50, 0.68, 0.27], [0.92, 0.72, 1.00]);
-      const rightPaw = mesh(new THREE.SphereGeometry(0.145, 20, 16), furLight, [0.50, 0.68, 0.27], [0.92, 0.72, 1.00]);
+      const leftPaw = mesh(new THREE.SphereGeometry(0.15, 22, 18), furLight, [-0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
+      const rightPaw = mesh(new THREE.SphereGeometry(0.15, 22, 18), furLight, [0.53, 0.67, 0.26], [0.94, 0.74, 1.00]);
       beaver.add(leftPaw);
       beaver.add(rightPaw);
+
       beaver.userData.trotParts = { leftFoot, rightFoot, leftArm, rightArm };
 
-      // Oversized mascot head with full cheeks.
-      beaver.add(mesh(new THREE.SphereGeometry(0.52, 36, 30), furMid, [0, 1.58, 0.015], [1.08, 0.96, 0.93]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.34, 30, 24), furLight, [-0.25, 1.48, 0.21], [0.96, 0.90, 0.72]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.34, 30, 24), furLight, [0.25, 1.48, 0.21], [0.96, 0.90, 0.72]));
+      // Large rounded head with cheek volume closer to the reference.
+      beaver.add(mesh(new THREE.SphereGeometry(0.53, 40, 32), furWarm, [0, 1.59, 0.015], [1.10, 0.98, 0.95]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.32, 30, 24), furLight, [-0.28, 1.48, 0.22], [0.98, 0.92, 0.75]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.32, 30, 24), furLight, [0.28, 1.48, 0.22], [0.98, 0.92, 0.75]));
 
-      // Rounded ears with warm inner-ear pads.
-      beaver.add(mesh(new THREE.SphereGeometry(0.17, 24, 18), furDark, [-0.38, 1.82, -0.015], [1.02, 1.02, 0.82]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.17, 24, 18), furDark, [0.38, 1.82, -0.015], [1.02, 1.02, 0.82]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.098, 20, 16), cream, [-0.38, 1.82, 0.07], [1.0, 1.0, 0.50]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.098, 20, 16), cream, [0.38, 1.82, 0.07], [1.0, 1.0, 0.50]));
-
-      // Big expressive eyes: sclera + iris + pupil + two highlights.
-      const eyeY = 1.67;
-      const eyeZ = 0.405;
-      [-0.18, 0.18].forEach((x, index) => {
-        beaver.add(mesh(new THREE.SphereGeometry(0.115, 28, 22), white, [x, eyeY, eyeZ], [0.92, 1.12, 0.64]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.070, 24, 18), iris, [x + (index === 0 ? 0.012 : -0.012), eyeY - 0.005, 0.476], [1, 1.08, 0.72]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.040, 20, 16), eyeGloss, [x + (index === 0 ? 0.016 : -0.016), eyeY - 0.008, 0.514], [1, 1.06, 0.75]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.016, 12, 10), white, [x - 0.018, eyeY + 0.034, 0.544]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.008, 10, 8), white, [x + 0.018, eyeY - 0.018, 0.546]));
+      // Small crown tufts to break the perfect sphere silhouette.
+      [-0.10, 0.00, 0.10].forEach((x, index) => {
+        beaver.add(mesh(
+          new THREE.ConeGeometry(0.055 - index * 0.006, 0.16 + index * 0.02, 10),
+          furWarm,
+          [x, 2.045 + index * 0.006, -0.01],
+          [1, 1, 1],
+          [0, 0, x * -1.8]
+        ));
       });
 
-      // Soft expressive brows.
-      const browMat = furDark;
-      beaver.add(mesh(new THREE.TorusGeometry(0.105, 0.018, 8, 20, Math.PI * 0.72), browMat, [-0.18, 1.785, 0.405], [1, 0.70, 1], [0, 0, 0.30]));
-      beaver.add(mesh(new THREE.TorusGeometry(0.105, 0.018, 8, 20, Math.PI * 0.72), browMat, [0.18, 1.785, 0.405], [1, 0.70, 1], [0, 0, 2.28]));
+      // Rounded ears with lighter inner pads.
+      beaver.add(mesh(new THREE.SphereGeometry(0.175, 26, 20), furDark, [-0.39, 1.83, -0.015], [1.02, 1.02, 0.82]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.175, 26, 20), furDark, [0.39, 1.83, -0.015], [1.02, 1.02, 0.82]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.10, 20, 16), cream, [-0.39, 1.83, 0.07], [1.0, 1.0, 0.50]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.10, 20, 16), cream, [0.39, 1.83, 0.07], [1.0, 1.0, 0.50]));
 
-      // Plush muzzle with two full cheek pads.
-      beaver.add(mesh(new THREE.SphereGeometry(0.235, 32, 26), creamLight, [-0.145, 1.48, 0.48], [1.02, 0.82, 0.66]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.235, 32, 26), creamLight, [0.145, 1.48, 0.48], [1.02, 0.82, 0.66]));
+      // Large expressive eyes: white sclera, amber iris, dark pupil and dual catchlights.
+      const eyeY = 1.69;
+      const eyeZ = 0.415;
+      [-0.18, 0.18].forEach((x, index) => {
+        beaver.add(mesh(new THREE.SphereGeometry(0.118, 30, 24), white, [x, eyeY, eyeZ], [0.94, 1.16, 0.66]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.073, 26, 20), iris, [x + (index === 0 ? 0.012 : -0.012), eyeY - 0.008, 0.489], [1, 1.08, 0.72]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.043, 22, 18), eyeGloss, [x + (index === 0 ? 0.016 : -0.016), eyeY - 0.010, 0.529], [1, 1.06, 0.76]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.017, 12, 10), white, [x - 0.018, eyeY + 0.038, 0.559]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.008, 10, 8), white, [x + 0.020, eyeY - 0.020, 0.561]));
+      });
 
-      // Large rounded nose.
-      beaver.add(mesh(new THREE.SphereGeometry(0.108, 28, 22), noseMat, [0, 1.57, 0.64], [1.28, 0.88, 0.78]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.022, 12, 10), white, [-0.030, 1.605, 0.712], [1.0, 0.70, 0.40]));
+      // Thick friendly eyebrows.
+      beaver.add(mesh(new THREE.TorusGeometry(0.110, 0.022, 8, 22, Math.PI * 0.74), furDark, [-0.18, 1.81, 0.405], [1, 0.72, 1], [0, 0, 0.28]));
+      beaver.add(mesh(new THREE.TorusGeometry(0.110, 0.022, 8, 22, Math.PI * 0.74), furDark, [0.18, 1.81, 0.405], [1, 0.72, 1], [0, 0, 2.30]));
 
-      // Open happy mouth, tongue and two signature incisors.
-      beaver.add(mesh(new THREE.SphereGeometry(0.205, 28, 22), mouthMat, [0, 1.34, 0.50], [1.05, 0.62, 0.34]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.125, 22, 18), tongueMat, [0, 1.285, 0.595], [1.02, 0.46, 0.28]));
+      // Plush two-part muzzle.
+      beaver.add(mesh(new THREE.SphereGeometry(0.24, 34, 28), creamLight, [-0.145, 1.49, 0.50], [1.05, 0.84, 0.68]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.24, 34, 28), creamLight, [0.145, 1.49, 0.50], [1.05, 0.84, 0.68]));
 
-      const leftTooth = mesh(new THREE.BoxGeometry(0.090, 0.205, 0.060), tooth, [-0.049, 1.405, 0.645], [1, 1, 1], [0, 0, 0.025]);
-      const rightTooth = mesh(new THREE.BoxGeometry(0.090, 0.205, 0.060), tooth, [0.049, 1.405, 0.645], [1, 1, 1], [0, 0, -0.025]);
-      beaver.add(leftTooth);
-      beaver.add(rightTooth);
+      // Large glossy nose with subtle specular highlight.
+      beaver.add(mesh(new THREE.SphereGeometry(0.112, 30, 24), noseMat, [0, 1.585, 0.665], [1.30, 0.90, 0.80]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.023, 12, 10), white, [-0.030, 1.620, 0.740], [1.0, 0.70, 0.40]));
 
-      // Smile corners and lower lip for a more readable grin.
-      beaver.add(mesh(new THREE.TorusGeometry(0.185, 0.019, 10, 30, Math.PI), furDark, [0, 1.405, 0.592], [1, 0.74, 1], [0, 0, Math.PI]));
-      beaver.add(mesh(new THREE.TorusGeometry(0.120, 0.015, 10, 26, Math.PI), tongueMat, [0, 1.295, 0.624], [1, 0.58, 1], [0, 0, 0]));
+      // Open happy grin with tongue and iconic incisors.
+      beaver.add(mesh(new THREE.SphereGeometry(0.215, 30, 24), mouthMat, [0, 1.345, 0.515], [1.06, 0.64, 0.36]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.128, 24, 20), tongueMat, [0, 1.285, 0.610], [1.02, 0.48, 0.28]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.094, 0.210, 0.064), tooth, [-0.050, 1.415, 0.662], [1, 1, 1], [0, 0, 0.024]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.094, 0.210, 0.064), tooth, [0.050, 1.415, 0.662], [1, 1, 1], [0, 0, -0.024]));
+      beaver.add(mesh(new THREE.TorusGeometry(0.190, 0.020, 10, 32, Math.PI), furDark, [0, 1.415, 0.605], [1, 0.75, 1], [0, 0, Math.PI]));
 
-      // Rosy cheeks, subtle and low-saturation.
-      const cheekMat = material(0xe69b7f, 0.84);
-      beaver.add(mesh(new THREE.SphereGeometry(0.060, 16, 12), cheekMat, [-0.31, 1.45, 0.47], [1.25, 0.48, 0.28]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.060, 16, 12), cheekMat, [0.31, 1.45, 0.47], [1.25, 0.48, 0.28]));
+      // Rosy cheek pads.
+      beaver.add(mesh(new THREE.SphereGeometry(0.062, 18, 14), cheekMat, [-0.315, 1.455, 0.485], [1.28, 0.48, 0.28]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.062, 18, 14), cheekMat, [0.315, 1.455, 0.485], [1.28, 0.48, 0.28]));
 
-      // Small chest badge only — no vest and no backpack.
-      beaver.add(mesh(new THREE.CylinderGeometry(0.070, 0.070, 0.024, 24), blue, [0, 1.055, 0.525], [1, 1, 1], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.021, 12, 10), white, [0, 1.055, 0.542]));
+      // Small SiteQuest-style white chest emblem on the jacket.
+      beaver.add(mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.016, 18), white, [0.205, 1.005, 0.477], [1, 1, 1], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.018, 0.070, 0.012), white, [0.205, 1.005, 0.488]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.018, 0.012), white, [0.205, 1.005, 0.488]));
 
-      // Vertical player beacon.
+      // Vertical player beacon kept from the previous implementation.
       const beacon = new THREE.Group();
       beacon.name = 'Player Beacon';
       const beamMat = new THREE.MeshBasicMaterial({
@@ -278,9 +371,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       });
-      beacon.add(mesh(new THREE.CylinderGeometry(0.105, 0.040, 6.8, 20, 1, true), beamMat, [0, 5.28, -0.02]));
-      beacon.add(mesh(new THREE.CylinderGeometry(0.024, 0.016, 7.2, 14), coreMat, [0, 5.43, -0.02]));
-      [2.30, 3.25, 4.25].forEach((y, index) => {
+      beacon.add(mesh(new THREE.CylinderGeometry(0.105, 0.040, 6.8, 20, 1, true), beamMat, [0, 5.32, -0.02]));
+      beacon.add(mesh(new THREE.CylinderGeometry(0.024, 0.016, 7.2, 14), coreMat, [0, 5.47, -0.02]));
+      [2.35, 3.30, 4.30].forEach((y, index) => {
         const ringMat = new THREE.MeshBasicMaterial({
           color: index % 2 === 0 ? 0x2f6bff : 0x7657ff,
           transparent: true,
