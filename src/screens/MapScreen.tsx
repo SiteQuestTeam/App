@@ -13,8 +13,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [initialLocationResolved, setInitialLocationResolved] = useState(false);
-  const [initialCenter, setInitialCenter] = useState(KRAKOW_CENTER);
   const latestLocation = useRef(null);
   const acceptedLocation = useRef(null);
   const latestHeading = useRef(0);
@@ -22,7 +20,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filter, setFilter] = useState('Wszystkie');
-  const html = useMemo(() => createMapHtml(initiatives, { center: initialCenter }), [initialCenter]);
+  const html = useMemo(() => createMapHtml(initiatives, { center: KRAKOW_CENTER }), []);
   const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
 
   useEffect(() => {
@@ -97,8 +95,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       );
     };
 
-    const resolveInitialLocation = async () => {
-      setLocating(true);
+    const startLocationTracking = async () => {
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) return;
@@ -110,10 +107,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         if (!active) return;
         latestLocation.current = location;
         acceptedLocation.current = location;
-        setInitialCenter({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
+        pushLocationToMap(location, true);
 
         locationSubscription = await Location.watchPositionAsync(
           {
@@ -133,16 +127,12 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
           pushHeadingToMap(value);
         });
       } catch {
-        // Keep the demo center only when GPS is genuinely unavailable.
-      } finally {
-        if (active) {
-          setLocating(false);
-          setInitialLocationResolved(true);
-        }
+        // Keep the last known avatar position when GPS is temporarily unavailable.
+        // A future watchPositionAsync update will move it once a valid fix returns.
       }
     };
 
-    resolveInitialLocation();
+    startLocationTracking();
     return () => {
       active = false;
       locationSubscription?.remove();
@@ -192,16 +182,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     }
   };
 
-  if (!initialLocationResolved) {
-    return (
-      <View style={styles.locationGate}>
-        <ActivityIndicator color={colors.signal} size="large" />
-        <Text style={styles.locationGateTitle}>Ustalam Twoją pozycję</Text>
-        <Text style={styles.locationGateText}>Mapa uruchomi się od Twojej bieżącej lokalizacji GPS.</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.screen}>
       {mapError ? (
@@ -222,7 +202,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
             const location = latestLocation.current;
             if (location) {
               webView.current?.injectJavaScript(
-                `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},false);window.setPlayerHeading && window.setPlayerHeading(${latestHeading.current});true;`,
+                `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);window.setPlayerHeading && window.setPlayerHeading(${latestHeading.current});true;`,
               );
             }
           }}
@@ -298,9 +278,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  locationGate: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', paddingHorizontal: 36 },
-  locationGateTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 20, marginTop: 16, textAlign: 'center' },
-  locationGateText: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 7, textAlign: 'center' },
   map: { backgroundColor: '#E8EDF5', flex: 1 },
   loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   mapFallback: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 40 },
