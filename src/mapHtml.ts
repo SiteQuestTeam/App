@@ -24,6 +24,18 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     html,body,#map{width:100%;height:100%;margin:0;overflow:hidden;background:#EAF0F7}
     *{box-sizing:border-box;font-family:Arial,sans-serif}
     #map:after{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,249,252,.06),rgba(23,70,183,.025) 55%,rgba(16,24,40,.05))}
+    .poi-marker{--poi:#2F6BFF;position:relative;width:92px;height:126px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;user-select:none;filter:drop-shadow(0 10px 16px rgba(16,24,40,.20));transform-origin:50% 100%;transition:transform .2s ease,filter .2s ease;pointer-events:auto}
+    .poi-marker.selected{transform:scale(1.12);filter:drop-shadow(0 13px 22px rgba(16,24,40,.26))}
+    .poi-head{position:relative;width:82px;height:82px;border-radius:50%;background:#fff;border:4px solid #fff;box-shadow:0 0 0 5px var(--poi),inset 0 0 0 1px rgba(16,24,40,.05);display:grid;place-items:center;overflow:visible}
+    .poi-head:before{content:"";position:absolute;inset:-10px;border:3px solid var(--poi);border-radius:50%;opacity:.18;transform:scale(.88)}
+    .poi-marker.selected .poi-head:before{animation:poiPulse 1.7s ease-out infinite}
+    .poi-core{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,color-mix(in srgb,var(--poi) 82%,white 18%),var(--poi));box-shadow:inset 0 6px 11px rgba(255,255,255,.28),inset 0 -6px 10px rgba(16,24,40,.12)}
+    .poi-icon{width:30px;height:30px;display:block;fill:none;stroke:#fff;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+    .poi-neck{width:15px;height:26px;margin-top:-2px;border-radius:7px;background:linear-gradient(180deg,var(--poi),color-mix(in srgb,var(--poi) 72%,#101828 28%));box-shadow:0 5px 9px rgba(16,24,40,.18)}
+    .poi-base{width:46px;height:15px;margin-top:-2px;border-radius:50%;background:var(--poi);border:3px solid #fff;box-shadow:0 3px 0 color-mix(in srgb,var(--poi) 68%,#101828 32%),0 7px 12px rgba(16,24,40,.18)}
+    .poi-title{position:absolute;top:111px;left:50%;max-width:150px;transform:translateX(-50%) translateY(4px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.97);color:#101828;font-size:10px;font-weight:800;box-shadow:0 7px 18px rgba(16,24,40,.14);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+    .poi-marker.selected .poi-title{opacity:1;transform:translateX(-50%) translateY(0)}
+    @keyframes poiPulse{0%{transform:scale(.82);opacity:.30}75%,100%{transform:scale(1.34);opacity:0}}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
     .maplibregl-ctrl-logo{display:none!important}
     ${compact ? '.maplibregl-ctrl-bottom-right{display:none}' : ''}
@@ -57,7 +69,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
-    const INITIATIVE_METERS_PER_UNIT = ${compact ? 8.0 : 10.0};
     let playerTransform = null;
     let playerTargetTransform = null;
     let playerHasFix = false;
@@ -494,330 +505,29 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     }
     // BEAVER_MODEL_END
 
-    function getInitiativeElevation(lng, lat) {
-      try {
-        const point = map.project([lng, lat]);
-        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
-        const buildingHeight = Math.max(
-          0,
-          ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)),
-        );
-        return buildingHeight + 0.8;
-      } catch {
-        return 0.8;
-      }
-    }
-
-    function createInitiativeLabelTexture(text) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
-      const ctx = canvas.getContext('2d');
-
-      ctx.clearRect(0, 0, 256, 256);
-      ctx.fillStyle = 'rgba(255,255,255,0.98)';
-      ctx.beginPath();
-      ctx.arc(128, 128, 104, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.lineWidth = 12;
-      ctx.strokeStyle = 'rgba(16,24,40,0.12)';
-      ctx.stroke();
-
-      ctx.fillStyle = '#101828';
-      ctx.font = '900 118px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(text || '•').slice(0, 2), 128, 136);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.needsUpdate = true;
-      return texture;
-    }
-
-    function createInitiative3D(item) {
-      const group = new THREE.Group();
-      group.name = 'Initiative ' + item.id;
-
-      const color = new THREE.Color(item.color);
-      const brightColor = color.clone().offsetHSL(0, 0.05, 0.12);
-      const darkColor = color.clone().multiplyScalar(0.62);
-
-      const baseMat = new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.34,
-        metalness: 0.03,
-        clearcoat: 0.34,
-        clearcoatRoughness: 0.28,
-      });
-      const brightMat = new THREE.MeshPhysicalMaterial({
-        color: brightColor,
-        roughness: 0.26,
-        metalness: 0.04,
-        clearcoat: 0.48,
-        clearcoatRoughness: 0.22,
-      });
-      const darkMat = new THREE.MeshStandardMaterial({
-        color: darkColor,
-        roughness: 0.52,
-        metalness: 0.04,
-      });
-      const whiteMat = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        roughness: 0.24,
-        metalness: 0.01,
-        clearcoat: 0.45,
-        clearcoatRoughness: 0.20,
-      });
-      const glowMat = new THREE.MeshBasicMaterial({
-        color: brightColor,
-        transparent: true,
-        opacity: 0.34,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      });
-
-      // Large game-like pedestal: readable even from a wider map zoom.
-      group.add(mesh(
-        new THREE.CylinderGeometry(0.66, 0.78, 0.18, 36),
-        darkMat,
-        [0, 0.10, 0],
-      ));
-      group.add(mesh(
-        new THREE.CylinderGeometry(0.56, 0.64, 0.11, 36),
-        baseMat,
-        [0, 0.24, 0],
-      ));
-      group.add(mesh(
-        new THREE.TorusGeometry(0.61, 0.045, 12, 44),
-        glowMat.clone(),
-        [0, 0.29, 0],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      ));
-
-      // Tall tapered tower rather than a thin pin.
-      group.add(mesh(
-        new THREE.CylinderGeometry(0.11, 0.19, 1.35, 22),
-        darkMat,
-        [0, 0.96, 0],
-      ));
-      group.add(mesh(
-        new THREE.CylinderGeometry(0.075, 0.12, 1.22, 22),
-        brightMat,
-        [0, 1.01, 0],
-      ));
-
-      // Floating POI head.
-      const head = new THREE.Group();
-      head.position.set(0, 1.88, 0);
-      head.userData.initiativeHead = true;
-
-      // White outer housing.
-      head.add(mesh(
-        new THREE.CylinderGeometry(0.60, 0.60, 0.20, 40),
-        whiteMat,
-        [0, 0, 0],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      ));
-
-      // Colored inset disc.
-      head.add(mesh(
-        new THREE.CylinderGeometry(0.49, 0.49, 0.23, 40),
-        baseMat,
-        [0, 0, 0.03],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      ));
-
-      // Inner luminous core gives the point a PokéStop-like game readability
-      // without copying a specific proprietary asset.
-      head.add(mesh(
-        new THREE.SphereGeometry(0.25, 28, 22),
-        brightMat,
-        [0, 0, 0.13],
-      ));
-
-      // Two orbiting rings around the floating head.
-      const orbitOuter = mesh(
-        new THREE.TorusGeometry(0.73, 0.035, 12, 48),
-        glowMat.clone(),
-        [0, 0, 0],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      );
-      orbitOuter.userData.initiativeHalo = true;
-      orbitOuter.userData.orbitSpeed = 0.55;
-      head.add(orbitOuter);
-
-      const orbitInner = mesh(
-        new THREE.TorusGeometry(0.62, 0.025, 10, 44),
-        glowMat.clone(),
-        [0, 0, 0],
-        [1, 1, 1],
-        [0, 0, 0],
-      );
-      orbitInner.userData.initiativeHaloSecondary = true;
-      orbitInner.userData.orbitSpeed = -0.42;
-      head.add(orbitInner);
-
-      // Large floating category badge always facing the camera.
-      const labelMat = new THREE.SpriteMaterial({
-        map: createInitiativeLabelTexture(item.marker),
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      });
-      const label = new THREE.Sprite(labelMat);
-      label.position.set(0, 0, 0.42);
-      label.scale.set(0.67, 0.67, 0.67);
-      label.renderOrder = 30;
-      head.add(label);
-
-      group.add(head);
-
-      // Wide ground energy ring.
-      const groundPulse = mesh(
-        new THREE.TorusGeometry(0.90, 0.045, 12, 52),
-        glowMat.clone(),
-        [0, 0.13, 0],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      );
-      groundPulse.userData.initiativeGroundPulse = true;
-      group.add(groundPulse);
-
-      // Stronger vertical beacon, visible between buildings.
-      const beam = mesh(
-        new THREE.CylinderGeometry(0.055, 0.12, 5.2, 18, 1, true),
-        glowMat.clone(),
-        [0, 4.40, 0],
-      );
-      beam.userData.initiativeBeam = true;
-      group.add(beam);
-
-      const beamCore = mesh(
-        new THREE.CylinderGeometry(0.020, 0.030, 5.5, 14),
-        new THREE.MeshBasicMaterial({
-          color: brightColor,
-          transparent: true,
-          opacity: 0.52,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        }),
-        [0, 4.55, 0],
-      );
-      beamCore.userData.initiativeBeamCore = true;
-      group.add(beamCore);
-
-      group.userData.itemId = item.id;
-      group.userData.baseY = 0;
-      return group;
-    }
-
-    const initiative3DLayer = {
-      id: 'sitequest-initiatives-3d',
-      type: 'custom',
-      renderingMode: '3d',
-      onAdd(mapInstance, gl) {
-        this.map = mapInstance;
-        this.camera = new THREE.Camera();
-        this.scene = new THREE.Scene();
-        this.entries = markers.map((item, index) => {
-          const model = createInitiative3D(item);
-          const mercator = maplibregl.MercatorCoordinate.fromLngLat(
-            item.coordinates,
-            getInitiativeElevation(item.coordinates[0], item.coordinates[1]),
-          );
-          const modelScale = mercator.meterInMercatorCoordinateUnits() * INITIATIVE_METERS_PER_UNIT;
-          const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
-          const modelMatrix = new THREE.Matrix4()
-            .makeTranslation(mercator.x, mercator.y, mercator.z)
-            .scale(new THREE.Vector3(modelScale, -modelScale, modelScale))
-            .multiply(rotationX);
-
-          model.matrixAutoUpdate = false;
-          model.matrix.copy(modelMatrix);
-          model.userData.phase = index * 0.77;
-          this.scene.add(model);
-          return { item, model };
-        });
-
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x40526a, 1.65));
-        const key = new THREE.DirectionalLight(0xffffff, 2.0);
-        key.position.set(-3, 6, 5);
-        this.scene.add(key);
-        const rim = new THREE.DirectionalLight(0x9fb8ff, 0.9);
-        rim.position.set(4, 3, -4);
-        this.scene.add(rim);
-
-        this.renderer = new THREE.WebGLRenderer({
-          canvas: mapInstance.getCanvas(),
-          context: gl,
-          antialias: true,
-        });
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.04;
-        this.renderer.autoClear = false;
-      },
-      render(gl, args) {
-        const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
-        if (!projectionMatrix || projectionMatrix.length !== 16) return;
-
-        this.camera.projectionMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
-        const time = performance.now() * 0.001;
-
-        this.entries.forEach(({ item, model }) => {
-          const selected = window.__selectedInitiativeId === item.id;
-
-          model.traverse((part) => {
-            if (part.userData.initiativeHead) {
-              const headScale = selected
-                ? 1.10 + Math.sin(time * 2.4 + model.userData.phase) * 0.035
-                : 1.0;
-              part.scale.set(headScale, headScale, headScale);
-              part.position.y = 1.88 + Math.sin(time * 1.8 + model.userData.phase) * 0.055;
-            }
-            if (part.userData.initiativeHalo) {
-              part.rotation.z = time * (part.userData.orbitSpeed || 0.55) + model.userData.phase;
-              const pulse = 0.95 + Math.sin(time * 2.2 + model.userData.phase) * 0.06;
-              part.scale.set(pulse, pulse, pulse);
-              part.material.opacity = selected ? 0.66 : 0.38;
-            }
-            if (part.userData.initiativeHaloSecondary) {
-              part.rotation.x = time * (part.userData.orbitSpeed || -0.42) + model.userData.phase;
-              part.material.opacity = selected ? 0.58 : 0.30;
-            }
-            if (part.userData.initiativeGroundPulse) {
-              const pulse = (Math.sin(time * 1.85 + model.userData.phase) + 1) * 0.5;
-              const scale = 0.86 + pulse * 0.46;
-              part.scale.set(scale, scale, scale);
-              part.material.opacity = 0.12 + (1 - pulse) * (selected ? 0.52 : 0.30);
-            }
-            if (part.userData.initiativeBeam) {
-              part.material.opacity = selected ? 0.52 : 0.28;
-            }
-            if (part.userData.initiativeBeamCore) {
-              part.material.opacity = selected ? 0.72 : 0.46;
-            }
-          });
-
-        });
-
-        this.renderer.resetState();
-        this.renderer.render(this.scene, this.camera);
-        this.map.triggerRepaint();
-      },
-    };
-
+    const initiativeMarkerElements = new Map();
     window.__selectedInitiativeId = null;
+
+    function initiativeIcon(marker) {
+      if (marker === 'R') {
+        return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M15.8 10a2.5 2.5 0 1 0 0-5"/><path d="M3.5 19c.4-3 2.2-4.8 5-4.8s4.7 1.8 5.1 4.8"/><path d="M14.4 14.4c2.7 0 4.4 1.6 4.8 4.1"/></svg>';
+      }
+      if (marker === 'Z') {
+        return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7.5 4.5 17"/><path d="M17 7.5 19.5 17"/><path d="M9.5 8.5h5"/><circle cx="6.5" cy="17" r="3.5"/><circle cx="17.5" cy="17" r="3.5"/><path d="M9.7 17h4.6"/></svg>';
+      }
+      return '<svg class="poi-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4"/><path d="M7 5h9l-1.7 3L16 11H7"/></svg>';
+    }
+
+    function setSelectedInitiative(id) {
+      window.__selectedInitiativeId = id;
+      initiativeMarkerElements.forEach((element, markerId) => {
+        element.classList.toggle('selected', markerId === id);
+      });
+    }
 
     function activateInitiative(item) {
       if (!item) return;
-      window.__selectedInitiativeId = item.id;
+      setSelectedInitiative(item.id);
       if (playerAnchored) {
         playerAnchored = false;
         send('anchor', { active: false });
@@ -831,29 +541,39 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         pitch: 68,
         bearing: map.getBearing(),
       });
-      map.triggerRepaint();
     }
 
-    function findInitiativeAtPoint(point) {
-      let winner = null;
-      let winnerDistance = 92;
+    function mountInitiativeMarkers() {
       markers.forEach((item) => {
-        const projected = map.project(item.coordinates);
-        const dx = projected.x - point.x;
-        const dy = projected.y - point.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance < winnerDistance) {
-          winner = item;
-          winnerDistance = distance;
-        }
-      });
-      return winner;
-    }
+        const element = document.createElement('button');
+        element.type = 'button';
+        element.className = 'poi-marker';
+        element.style.setProperty('--poi', item.color);
+        element.setAttribute('aria-label', item.title);
+        element.innerHTML =
+          '<span class="poi-head"><span class="poi-core">' + initiativeIcon(item.marker) + '</span></span>' +
+          '<span class="poi-neck"></span>' +
+          '<span class="poi-base"></span>' +
+          '<span class="poi-title">' + item.title + '</span>';
 
-    map.on('click', (event) => {
-      const item = findInitiativeAtPoint(event.point);
-      if (item) activateInitiative(item);
-    });
+        element.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          activateInitiative(item);
+        });
+
+        initiativeMarkerElements.set(item.id, element);
+
+        new maplibregl.Marker({
+          element,
+          anchor: 'bottom',
+          pitchAlignment: 'viewport',
+          rotationAlignment: 'viewport',
+        })
+          .setLngLat(item.coordinates)
+          .addTo(map);
+      });
+    }
 
     const player3DLayer = {
       id: 'sitequest-player-beaver-3d',
@@ -1020,7 +740,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
-      if (!map.getLayer(initiative3DLayer.id)) map.addLayer(initiative3DLayer);
+      mountInitiativeMarkers();
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
@@ -1109,7 +829,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
       if (!item) return;
-      window.__selectedInitiativeId = item.id;
+      setSelectedInitiative(item.id);
       if (playerAnchored) {
         playerAnchored = false;
         send('anchor', { active: false });
