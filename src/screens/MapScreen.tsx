@@ -16,6 +16,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const latestLocation = useRef(null);
   const acceptedLocation = useRef(null);
   const latestHeading = useRef(0);
+  const appliedHeading = useRef(null);
   const movementStopTimer = useRef(null);
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -62,6 +63,12 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     };
 
     const acceptMeaningfulMovement = (nextLocation) => {
+      const nextAccuracy = Number(nextLocation.coords.accuracy ?? Infinity);
+
+      // Never place the avatar from a low-quality fix. Until a good fix arrives,
+      // the map stays freely pannable and the avatar remains hidden.
+      if (!Number.isFinite(nextAccuracy) || nextAccuracy > 35) return;
+
       latestLocation.current = nextLocation;
       const previous = acceptedLocation.current;
       if (!previous) {
@@ -71,12 +78,11 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       }
 
       const accuracy = Math.max(
-        Number(previous.coords.accuracy || 0),
-        Number(nextLocation.coords.accuracy || 0),
+        Number(previous.coords.accuracy ?? nextAccuracy),
+        nextAccuracy,
       );
 
-      // Ignore very poor fixes and absorb GPS drift while standing still.
-      if (accuracy > 50) return;
+      // Absorb GPS drift while standing still.
       const deadZoneMeters = Math.max(3, Math.min(8, accuracy * 0.35));
       const movedMeters = distanceMeters(previous, nextLocation);
       if (movedMeters < deadZoneMeters) return;
@@ -90,6 +96,14 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       if (!Number.isFinite(heading)) return;
       const normalized = ((heading % 360) + 360) % 360;
       latestHeading.current = normalized;
+
+      const previous = appliedHeading.current;
+      if (previous !== null) {
+        const delta = Math.abs(((normalized - previous + 540) % 360) - 180);
+        if (delta < 12) return;
+      }
+
+      appliedHeading.current = normalized;
       webView.current?.injectJavaScript(
         `window.setPlayerHeading && window.setPlayerHeading(${normalized});true;`,
       );
@@ -102,7 +116,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
         locationSubscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
+            accuracy: Location.Accuracy.BestForNavigation,
             distanceInterval: 1,
             timeInterval: 1000,
           },
@@ -161,8 +175,15 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
+      const accuracy = Number(location.coords.accuracy ?? Infinity);
+      if (!Number.isFinite(accuracy) || accuracy > 35) {
+        Alert.alert('Słaby sygnał GPS', 'Poczekaj na dokładniejszy sygnał lokalizacji i spróbuj ponownie.');
+        return;
+      }
+
       latestLocation.current = location;
+      acceptedLocation.current = location;
       webView.current?.injectJavaScript(
         `window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);true;`,
       );
