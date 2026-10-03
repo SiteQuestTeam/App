@@ -470,10 +470,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     map.on('dragstart', suspendHeadingForGesture);
     map.on('dragend', resumeHeadingAfterGesture);
-    map.on('rotatestart', suspendHeadingForGesture);
-    map.on('rotateend', resumeHeadingAfterGesture);
-    map.on('pitchstart', suspendHeadingForGesture);
-    map.on('pitchend', resumeHeadingAfterGesture);
 
     window.setPlayerHeading = (headingDegrees) => {
       if (!Number.isFinite(headingDegrees)) return;
