@@ -16,6 +16,9 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [initialLocationResolved, setInitialLocationResolved] = useState(false);
   const [initialCenter, setInitialCenter] = useState(KRAKOW_CENTER);
   const latestLocation = useRef(null);
+  const acceptedLocation = useRef(null);
+  const latestHeading = useRef(0);
+  const movementStopTimer = useRef(null);
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filter, setFilter] = useState('Wszystkie');
@@ -24,12 +27,73 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
   useEffect(() => {
     let active = true;
-    let subscription = null;
+    let locationSubscription = null;
+    let headingSubscription = null;
+
+    const distanceMeters = (from, to) => {
+      const earthRadius = 6371000;
+      const toRad = (value) => (value * Math.PI) / 180;
+      const dLat = toRad(to.coords.latitude - from.coords.latitude);
+      const dLng = toRad(to.coords.longitude - from.coords.longitude);
+      const lat1 = toRad(from.coords.latitude);
+      const lat2 = toRad(to.coords.latitude);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const setMoving = (moving) => {
+      webView.current?.injectJavaScript(
+        `window.setPlayerMoving && window.setPlayerMoving(${moving ? 'true' : 'false'});true;`,
+      );
+    };
+
+    const markMovement = () => {
+      setMoving(true);
+      if (movementStopTimer.current) clearTimeout(movementStopTimer.current);
+      movementStopTimer.current = setTimeout(() => setMoving(false), 1600);
+    };
 
     const pushLocationToMap = (location, centerMap = false) => {
       latestLocation.current = location;
+      acceptedLocation.current = location;
       webView.current?.injectJavaScript(
-        `window.movePlayer(${location.coords.longitude},${location.coords.latitude},${centerMap ? 'true' : 'false'});true;`,
+        `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},${centerMap ? 'true' : 'false'});true;`,
+      );
+    };
+
+    const acceptMeaningfulMovement = (nextLocation) => {
+      latestLocation.current = nextLocation;
+      const previous = acceptedLocation.current;
+      if (!previous) {
+        acceptedLocation.current = nextLocation;
+        pushLocationToMap(nextLocation, false);
+        return;
+      }
+
+      const accuracy = Math.max(
+        Number(previous.coords.accuracy || 0),
+        Number(nextLocation.coords.accuracy || 0),
+      );
+
+      // Ignore very poor fixes and absorb GPS drift while standing still.
+      if (accuracy > 50) return;
+      const deadZoneMeters = Math.max(3, Math.min(8, accuracy * 0.35));
+      const movedMeters = distanceMeters(previous, nextLocation);
+      if (movedMeters < deadZoneMeters) return;
+
+      acceptedLocation.current = nextLocation;
+      pushLocationToMap(nextLocation, false);
+      markMovement();
+    };
+
+    const pushHeadingToMap = (heading) => {
+      if (!Number.isFinite(heading)) return;
+      const normalized = ((heading % 360) + 360) % 360;
+      latestHeading.current = normalized;
+      webView.current?.injectJavaScript(
+        `window.setPlayerHeading && window.setPlayerHeading(${normalized});true;`,
       );
     };
 
@@ -45,22 +109,29 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
         if (!active) return;
         latestLocation.current = location;
+        acceptedLocation.current = location;
         setInitialCenter({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         });
 
-        subscription = await Location.watchPositionAsync(
+        locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
-            distanceInterval: 2,
+            distanceInterval: 1,
             timeInterval: 1000,
           },
           (nextLocation) => {
             if (!active) return;
-            pushLocationToMap(nextLocation, false);
+            acceptMeaningfulMovement(nextLocation);
           },
         );
+
+        headingSubscription = await Location.watchHeadingAsync((heading) => {
+          if (!active) return;
+          const value = heading.trueHeading >= 0 ? heading.trueHeading : heading.magHeading;
+          pushHeadingToMap(value);
+        });
       } catch {
         // Keep the demo center only when GPS is genuinely unavailable.
       } finally {
@@ -74,7 +145,9 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     resolveInitialLocation();
     return () => {
       active = false;
-      subscription?.remove();
+      locationSubscription?.remove();
+      headingSubscription?.remove();
+      if (movementStopTimer.current) clearTimeout(movementStopTimer.current);
     };
   }, []);
   const searchResults = initiatives.filter((item) => {
@@ -149,7 +222,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
             const location = latestLocation.current;
             if (location) {
               webView.current?.injectJavaScript(
-                `window.movePlayer(${location.coords.longitude},${location.coords.latitude},false);true;`,
+                `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},false);window.setPlayerHeading && window.setPlayerHeading(${latestHeading.current});true;`,
               );
             }
           }}
