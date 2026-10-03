@@ -266,7 +266,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
         {showFilters && (
           <View style={styles.filters}>
             {[
-              { value: 'Wszystkie', icon: 'apps-outline' },
+              { value: 'Wszystkie', icon: null },
               { value: 'Misja', icon: 'flag-outline' },
               { value: 'Rajd', icon: 'people-outline' },
               { value: 'Zwiad', icon: 'binoculars-outline' },
@@ -280,7 +280,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
                   onPress={() => setFilter(value)}
                   style={[styles.filterChip, active && styles.filterChipActive]}
                 >
-                  <Ionicons color={active ? colors.surface : colors.muted} name={icon} size={15} />
+                  {icon && <Ionicons color={active ? colors.surface : colors.muted} name={icon} size={14} />}
                   <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{value}</Text>
                 </Pressable>
               );
@@ -363,10 +363,10 @@ const styles = StyleSheet.create({
   searchInput: { color: colors.ink, flex: 1, fontFamily: fonts.body, fontSize: 14, height: 50 },
   filterButton: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 14, height: 42, justifyContent: 'center', width: 42 },
   filterButtonActive: { backgroundColor: colors.signal },
-  filters: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginTop: 7, padding: 9, ...shadow },
-  filterChip: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 999, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
+  filters: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexWrap: 'nowrap', gap: 5, marginTop: 7, padding: 7, ...shadow },
+  filterChip: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 999, flexDirection: 'row', flexShrink: 1, gap: 5, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 8 },
   filterChipActive: { backgroundColor: colors.signal },
-  filterChipText: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11 },
+  filterChipText: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 10.5 },
   filterChipTextActive: { color: colors.surface },
   searchResults: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, marginTop: 7, overflow: 'hidden', ...shadow },
   searchResult: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 58, paddingHorizontal: 13 },
