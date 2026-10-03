@@ -14,7 +14,14 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Zezwól SiteQuest używać Twojej lokalizacji, aby pokazać działania w pobliżu."
+        }
+      ],
+      "expo-font"
     ]
   }
 }

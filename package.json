@@ -9,9 +9,16 @@
     "ios": "expo start --ios"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/manrope": "^0.4.2",
+    "@expo/vector-icons": "^15.0.2",
     "expo": "~57.0.0",
     "expo-camera": "~57.0.6",
+    "expo-font": "~57.0.4",
+    "expo-location": "~57.0.20",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-webview": "13.16.1"
   }
 }
