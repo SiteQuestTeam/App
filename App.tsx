@@ -9,13 +9,14 @@ import { CreatorScreen } from './src/screens/CreatorScreen';
 import { DiscoverScreen, ProfileScreen, TeamScreen } from './src/screens/TabScreens';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { colors } from './src/theme';
-import type { Initiative, Role, ScreenName } from './src/types';
+import type { AccountId, Initiative, Role, ScreenName } from './src/types';
 
 export default function App() {
   const [manropeLoaded] = useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
   const [interLoaded] = useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
   const [screen, setScreen] = useState<ScreenName>('map');
-  const [role, setRole] = useState<Role>('player');
+  const [accountId, setAccountId] = useState<AccountId>('player-demo');
+  const role: Role = accountId === 'ngo-demo' ? 'ngo' : 'player';
   const [selectedInitiative, setSelectedInitiative] = useState<Initiative | null>(null);
 
   if (!manropeLoaded || !interLoaded) {
@@ -30,13 +31,13 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'map':
-        return <MapScreen onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} onRoleChange={setRole} role={role} />;
+        return <MapScreen onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} role={role} />;
       case 'discover':
         return <DiscoverScreen onNavigate={setScreen} onOpenInitiative={openInitiative} role={role} />;
       case 'team':
         return <TeamScreen onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} role={role} />;
       case 'profile':
-        return <ProfileScreen onCamera={() => setScreen('camera')} onNavigate={setScreen} onRoleChange={setRole} role={role} />;
+        return <ProfileScreen accountId={accountId} onAccountChange={setAccountId} onCamera={() => setScreen('camera')} onNavigate={setScreen} role={role} />;
       case 'detail':
         return selectedInitiative ? <DetailScreen initiative={selectedInitiative} onBack={() => setScreen('map')} role={role} /> : null;
       case 'creator':
@@ -44,7 +45,7 @@ export default function App() {
       case 'camera':
         return <CameraScreen onBack={() => setScreen('profile')} />;
       default:
-        return <MapScreen onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} onRoleChange={setRole} role={role} />;
+        return <MapScreen onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} role={role} />;
     }
   };
 
