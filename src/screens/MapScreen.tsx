@@ -15,6 +15,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [locating, setLocating] = useState(false);
   const [initialLocationResolved, setInitialLocationResolved] = useState(false);
   const [initialCenter, setInitialCenter] = useState(KRAKOW_CENTER);
+  const latestLocation = useRef(null);
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filter, setFilter] = useState('Wszystkie');
@@ -23,24 +24,45 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
   useEffect(() => {
     let active = true;
+    let subscription = null;
+
+    const pushLocationToMap = (location, centerMap = false) => {
+      latestLocation.current = location;
+      webView.current?.injectJavaScript(
+        `window.movePlayer(${location.coords.longitude},${location.coords.latitude},${centerMap ? 'true' : 'false'});true;`,
+      );
+    };
 
     const resolveInitialLocation = async () => {
       setLocating(true);
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.granted) {
-          const location = await Location.getCurrentPositionAsync({
+        if (!permission.granted) return;
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        if (!active) return;
+        latestLocation.current = location;
+        setInitialCenter({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+
+        subscription = await Location.watchPositionAsync(
+          {
             accuracy: Location.Accuracy.High,
-          });
-          if (active) {
-            setInitialCenter({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-            });
-          }
-        }
+            distanceInterval: 2,
+            timeInterval: 1000,
+          },
+          (nextLocation) => {
+            if (!active) return;
+            pushLocationToMap(nextLocation, false);
+          },
+        );
       } catch {
-        // Fall back to the demo center when GPS is unavailable.
+        // Keep the demo center only when GPS is genuinely unavailable.
       } finally {
         if (active) {
           setLocating(false);
@@ -52,6 +74,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     resolveInitialLocation();
     return () => {
       active = false;
+      subscription?.remove();
     };
   }, []);
   const searchResults = initiatives.filter((item) => {
@@ -79,16 +102,18 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     setLocating(true);
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.granted) {
-        const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        webView.current?.injectJavaScript(
-          `window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);true;`,
-        );
-      } else {
-        Alert.alert('Brak dostępu do lokalizacji', 'Możesz nadal poruszać awatarem, dotykając wybranego miejsca na mapie.');
+      if (!permission.granted) {
+        Alert.alert('Brak dostępu do lokalizacji', 'Awatar może korzystać wyłącznie z rzeczywistej pozycji GPS.');
+        return;
       }
+
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      latestLocation.current = location;
+      webView.current?.injectJavaScript(
+        `window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);true;`,
+      );
     } catch {
-      Alert.alert('Nie udało się ustalić pozycji', 'Dotknij mapy, aby ręcznie przesunąć awatar.');
+      Alert.alert('Nie udało się ustalić pozycji', 'Sprawdź, czy lokalizacja GPS jest włączona i spróbuj ponownie.');
     } finally {
       setLocating(false);
     }
@@ -120,6 +145,14 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
           onError={() => setMapError(true)}
           onHttpError={() => setMapError(true)}
           onMessage={handleMessage}
+          onLoadEnd={() => {
+            const location = latestLocation.current;
+            if (location) {
+              webView.current?.injectJavaScript(
+                `window.movePlayer(${location.coords.longitude},${location.coords.latitude},false);true;`,
+              );
+            }
+          }}
           originWhitelist={['*']}
           renderLoading={() => <ActivityIndicator color={colors.signal} size="large" style={styles.loader} />}
           source={{ html }}

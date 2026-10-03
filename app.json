@@ -22,6 +22,9 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "android": {
+      "package": "com.anonymous.sitequestapp"
+    }
   }
 }

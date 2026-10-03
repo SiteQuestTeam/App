@@ -1,4 +1,5 @@
-import { KRAKOW_CENTER } from './data';\nimport type { Initiative, MapHtmlOptions } from './types';
+import { KRAKOW_CENTER } from './data';
+import type { Initiative, MapHtmlOptions } from './types';
 
 const escapeJson = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -57,11 +58,23 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors · OpenFreeMap' }), 'bottom-right');
 
-    const BEAVER_METERS_PER_UNIT = ${compact ? 3.4 : 4.2};
+    const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
+    const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
 
+    function getPlayerElevation(lng, lat) {
+      try {
+        const point = map.project([lng, lat]);
+        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
+        const buildingHeight = Math.max(0, ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)));
+        return buildingHeight + BEAVER_GROUND_CLEARANCE_METERS;
+      } catch {
+        return 0;
+      }
+    }
+
     function updatePlayerTransform(lng, lat) {
-      const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
+      const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], getPlayerElevation(lng, lat));
       playerTransform = {
         translateX: mercator.x,
         translateY: mercator.y,
@@ -69,7 +82,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         scale: mercator.meterInMercatorCoordinateUnits() * BEAVER_METERS_PER_UNIT,
         rotateX: Math.PI / 2,
         rotateY: 0,
-        rotateZ: Math.PI
+        rotateZ: 0
       };
     }
 
@@ -101,6 +114,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const deep = material(0x1746b7, 0.58);
       const violet = material(0x7657ff, 0.52);
       const tailMat = material(0x75452c, 0.92);
+      const nose = material(0x2b1b16, 0.48);
+      const tooth = material(0xfffbef, 0.38);
 
       // Flat paddle tail behind the body.
       beaver.add(mesh(
@@ -119,19 +134,13 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.52, 22, 18), fur, [0, 0.73, 0], [0.88, 1.18, 0.72]));
       beaver.add(mesh(new THREE.SphereGeometry(0.34, 20, 16), cream, [0, 0.76, 0.38], [0.78, 1.04, 0.22]));
 
-      // Brand vest as an actual 3D shell.
-      beaver.add(mesh(new THREE.SphereGeometry(0.54, 22, 18, 0, Math.PI * 2, 0.42, 1.45), blue, [0, 0.73, 0.03], [0.91, 1.08, 0.76]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.035, 20), white, [0, 0.82, 0.47], [1, 1, 1], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.10, 0.025, 0.025), blue, [0, 0.82, 0.493]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.10, 0.025), blue, [0, 0.82, 0.493]));
+      // Natural torso — no backpack, vest or shell around the avatar.
+      beaver.add(mesh(new THREE.SphereGeometry(0.30, 22, 18), furLight, [0, 0.98, 0.18], [0.88, 0.82, 0.38]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.10, 18, 14), cream, [0, 1.02, 0.46], [1.15, 0.75, 0.35]));
 
       // Arms.
       beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [-0.44, 0.79, 0.08], [1, 1, 1], [0, 0, -0.36]));
       beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [0.44, 0.79, 0.08], [1, 1, 1], [0, 0, 0.36]));
-
-      // Violet backpack.
-      beaver.add(mesh(new THREE.BoxGeometry(0.34, 0.52, 0.20), violet, [0.36, 0.83, -0.31], [1, 1, 1], [0, -0.18, -0.08]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.23, 0.07, 0.04), material(0xa997ff, 0.58), [0.36, 0.97, -0.425]));
 
       // Head and ears.
       beaver.add(mesh(new THREE.SphereGeometry(0.47, 24, 20), furLight, [0, 1.53, 0.02], [1.02, 0.91, 0.88]));
@@ -140,21 +149,72 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [-0.33, 1.75, 0.06]));
       beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [0.33, 1.75, 0.06]));
 
-      // Face.
-      beaver.add(mesh(new THREE.SphereGeometry(0.30, 20, 16), cream, [0, 1.42, 0.37], [1.08, 0.70, 0.42]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.075, 16, 12), ink, [0, 1.52, 0.54], [1.15, 0.75, 0.65]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.061, 16, 12), ink, [-0.17, 1.62, 0.39]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.061, 16, 12), ink, [0.17, 1.62, 0.39]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.018, 10, 8), white, [-0.153, 1.642, 0.444]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.018, 10, 8), white, [0.187, 1.642, 0.444]));
+      // Face: fuller muzzle, brows, cheeks and characteristic beaver nose.
+      beaver.add(mesh(new THREE.SphereGeometry(0.30, 24, 20), cream, [0, 1.42, 0.37], [1.10, 0.72, 0.44]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.18, 20, 16), cream, [-0.13, 1.43, 0.43], [1.0, 0.72, 0.55]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.18, 20, 16), cream, [0.13, 1.43, 0.43], [1.0, 0.72, 0.55]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.082, 18, 14), nose, [0, 1.52, 0.555], [1.22, 0.78, 0.70]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.061, 18, 14), ink, [-0.17, 1.62, 0.405]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.061, 18, 14), ink, [0.17, 1.62, 0.405]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.019, 10, 8), white, [-0.153, 1.642, 0.458]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.019, 10, 8), white, [0.187, 1.642, 0.458]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.13, 0.025, 0.025), furDark, [-0.17, 1.71, 0.405], [1, 1, 1], [0, 0, -0.15]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.13, 0.025, 0.025), furDark, [0.17, 1.71, 0.405], [1, 1, 1], [0, 0, 0.15]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.055, 14, 10), material(0xd98b73, 0.8), [-0.27, 1.43, 0.42], [1, 0.52, 0.30]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.055, 14, 10), material(0xd98b73, 0.8), [0.27, 1.43, 0.42], [1, 0.52, 0.30]));
 
-      // Beaver teeth.
-      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.17, 0.055), white, [-0.052, 1.31, 0.55], [1, 1, 1], [0, 0, 0.025]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.17, 0.055), white, [0.052, 1.31, 0.55], [1, 1, 1], [0, 0, -0.025]));
+      // Beaver teeth and subtle mouth line.
+      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.18, 0.060), tooth, [-0.052, 1.305, 0.555], [1, 1, 1], [0, 0, 0.025]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.18, 0.060), tooth, [0.052, 1.305, 0.555], [1, 1, 1], [0, 0, -0.025]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.18, 0.018, 0.018), furDark, [0, 1.395, 0.545]));
 
-      // SiteQuest neck accent.
-      beaver.add(mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 28), deep, [0, 1.18, 0.02], [1, 1, 0.78], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.055, 12, 10), violet, [0.29, 1.20, 0.34]));
+      // Paws with small claws for a more readable silhouette.
+      [-0.44, 0.44].forEach((x) => {
+        beaver.add(mesh(new THREE.SphereGeometry(0.13, 16, 12), furLight, [x, 0.62, 0.22], [0.85, 0.65, 0.90]));
+        const direction = x < 0 ? -1 : 1;
+        for (let i = -1; i <= 1; i += 1) {
+          beaver.add(mesh(new THREE.ConeGeometry(0.018, 0.075, 8), tooth, [x + i * 0.035, 0.58, 0.315], [1, 1, 1], [Math.PI / 2, 0, direction * 0.08]));
+        }
+      });
+
+      // Subtle SiteQuest badge on the chest, without clothing or backpack.
+      beaver.add(mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.022, 20), blue, [0, 1.03, 0.515], [1, 1, 1], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.020, 10, 8), white, [0, 1.03, 0.532]));
+
+      // Vertical player beacon: visible above buildings without surrounding the avatar.
+      const beacon = new THREE.Group();
+      beacon.name = 'Player Beacon';
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: 0x2f6bff,
+        transparent: true,
+        opacity: 0.26,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const coreMat = new THREE.MeshBasicMaterial({
+        color: 0xa997ff,
+        transparent: true,
+        opacity: 0.50,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      beacon.add(mesh(new THREE.CylinderGeometry(0.11, 0.045, 6.6, 18, 1, true), beamMat, [0, 5.15, -0.02]));
+      beacon.add(mesh(new THREE.CylinderGeometry(0.025, 0.018, 7.0, 12), coreMat, [0, 5.30, -0.02]));
+      [2.25, 3.15, 4.15].forEach((y, index) => {
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: index % 2 === 0 ? 0x2f6bff : 0x7657ff,
+          transparent: true,
+          opacity: 0.34,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        });
+        const ring = mesh(new THREE.TorusGeometry(0.28 + index * 0.05, 0.018, 8, 28), ringMat, [0, y, -0.02], [1, 1, 1], [Math.PI / 2, 0, 0]);
+        ring.userData.beaconRing = true;
+        ring.userData.phase = index * 0.8;
+        beacon.add(ring);
+      });
+      beaver.add(beacon);
+      beaver.userData.beacon = beacon;
 
       beaver.rotation.y = -0.16;
       return beaver;
@@ -188,14 +248,17 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         });
         this.renderer.autoClear = false;
       },
-      render(gl, matrix) {
+      render(gl, args) {
         if (!playerTransform) return;
 
         const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), playerTransform.rotateX);
         const rotationY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), playerTransform.rotateY);
         const rotationZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), playerTransform.rotateZ);
 
-        const mapMatrix = new THREE.Matrix4().fromArray(matrix);
+        // MapLibre 4.x passes the matrix directly; newer releases expose it in render args.
+        const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
+        if (!projectionMatrix || projectionMatrix.length !== 16) return;
+        const mapMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
         const modelMatrix = new THREE.Matrix4()
           .makeTranslation(playerTransform.translateX, playerTransform.translateY, playerTransform.translateZ)
           .scale(new THREE.Vector3(playerTransform.scale, -playerTransform.scale, playerTransform.scale))
@@ -208,7 +271,16 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         const time = performance.now() * 0.001;
         this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
         this.beaver.rotation.y = -0.16 + Math.sin(time * 1.3) * 0.035;
+        this.beaver.userData.beacon?.children.forEach((part) => {
+          if (!part.userData.beaconRing) return;
+          const pulse = (Math.sin(time * 2.4 + part.userData.phase) + 1) * 0.5;
+          const scale = 0.82 + pulse * 0.50;
+          part.scale.set(scale, scale, scale);
+          part.material.opacity = 0.18 + (1 - pulse) * 0.28;
+        });
 
+        // Keep the player avatar visible even when its coordinate falls inside a 3D building.
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
         this.map.triggerRepaint();
@@ -281,6 +353,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
+      updatePlayerTransform(playerPosition[0], playerPosition[1]);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
@@ -297,9 +370,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const item = markers.find((marker) => marker.id === id);
       if (item) map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
     };
-    map.on('click', (event) => {
-      ${compact ? '' : "movePlayer(event.lngLat.lng,event.lngLat.lat,false);send('position',{longitude:event.lngLat.lng,latitude:event.lngLat.lat});"}
-    });
+    // Tapping the map never changes the Player's GPS position.
   </script>
 </body>
 </html>`;
