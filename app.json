@@ -9,7 +9,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Zezwól SideQuest na używanie aparatu do wykonywania Zdjęć na żywo.",
+          "cameraPermission": "Zezwól SiteQuest na używanie aparatu do wykonywania Zdjęć na żywo.",
           "microphonePermission": false,
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
