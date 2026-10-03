@@ -189,14 +189,14 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         });
         this.renderer.autoClear = false;
       },
-      render(gl, matrix) {
+      render(gl, args) {
         if (!playerTransform) return;
 
         const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), playerTransform.rotateX);
         const rotationY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), playerTransform.rotateY);
         const rotationZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), playerTransform.rotateZ);
 
-        const mapMatrix = new THREE.Matrix4().fromArray(matrix);
+        const mapMatrix = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
         const modelMatrix = new THREE.Matrix4()
           .makeTranslation(playerTransform.translateX, playerTransform.translateY, playerTransform.translateZ)
           .scale(new THREE.Vector3(playerTransform.scale, -playerTransform.scale, playerTransform.scale))
