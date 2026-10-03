@@ -1,4 +1,5 @@
 export type Role = 'player' | 'ngo';
+export type AccountId = 'player-demo' | 'ngo-demo';
 export type ScreenName = 'map' | 'discover' | 'team' | 'profile' | 'detail' | 'creator' | 'camera' | 'landing';
 export type InitiativeType = 'Misja' | 'Rajd' | 'Szare miejsce' | 'Misja NGO';
 
