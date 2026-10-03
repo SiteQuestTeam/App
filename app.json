@@ -18,7 +18,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Zezwól SiteQuest używać Twojej lokalizacji, aby pokazać działania w pobliżu."
+          "locationWhenInUsePermission": "Zezwól SiteQuest używać Twojej dokładnej lokalizacji, aby poprawnie ustawić Awatara i działania w pobliżu."
         }
       ],
       "expo-font"
