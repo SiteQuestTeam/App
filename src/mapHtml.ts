@@ -62,8 +62,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
     let playerTargetTransform = null;
-    let playerHeadingDegrees = 0;
-    let displayedHeadingRadians = 0;
+    let targetMapBearing = -24;
+    let bearingAnimationFrame = null;
     let playerIsMoving = false;
 
     function getPlayerElevation(lng, lat) {
@@ -165,24 +165,42 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [-0.33, 1.75, 0.06]));
       beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [0.33, 1.75, 0.06]));
 
-      // Face: fuller muzzle, brows, cheeks and characteristic beaver nose.
-      beaver.add(mesh(new THREE.SphereGeometry(0.30, 24, 20), cream, [0, 1.42, 0.37], [1.10, 0.72, 0.44]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.18, 20, 16), cream, [-0.13, 1.43, 0.43], [1.0, 0.72, 0.55]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.18, 20, 16), cream, [0.13, 1.43, 0.43], [1.0, 0.72, 0.55]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.082, 18, 14), nose, [0, 1.52, 0.555], [1.22, 0.78, 0.70]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.061, 18, 14), ink, [-0.17, 1.62, 0.405]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.061, 18, 14), ink, [0.17, 1.62, 0.405]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.019, 10, 8), white, [-0.153, 1.642, 0.458]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.019, 10, 8), white, [0.187, 1.642, 0.458]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.13, 0.025, 0.025), furDark, [-0.17, 1.71, 0.405], [1, 1, 1], [0, 0, -0.15]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.13, 0.025, 0.025), furDark, [0.17, 1.71, 0.405], [1, 1, 1], [0, 0, 0.15]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.055, 14, 10), material(0xd98b73, 0.8), [-0.27, 1.43, 0.42], [1, 0.52, 0.30]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.055, 14, 10), material(0xd98b73, 0.8), [0.27, 1.43, 0.42], [1, 0.52, 0.30]));
+      // Face: softer proportions, larger expressive eyes and a clearer friendly smile.
+      beaver.add(mesh(new THREE.SphereGeometry(0.31, 28, 22), cream, [0, 1.42, 0.375], [1.12, 0.74, 0.46]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.185, 22, 18), cream, [-0.135, 1.43, 0.445], [1.0, 0.74, 0.58]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.185, 22, 18), cream, [0.135, 1.43, 0.445], [1.0, 0.74, 0.58]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.086, 20, 16), nose, [0, 1.515, 0.575], [1.24, 0.78, 0.72]));
 
-      // Beaver teeth and subtle mouth line.
-      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.18, 0.060), tooth, [-0.052, 1.305, 0.555], [1, 1, 1], [0, 0, 0.025]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.18, 0.060), tooth, [0.052, 1.305, 0.555], [1, 1, 1], [0, 0, -0.025]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.18, 0.018, 0.018), furDark, [0, 1.395, 0.545]));
+      // Slightly larger eyes with warm catchlights.
+      beaver.add(mesh(new THREE.SphereGeometry(0.072, 20, 16), ink, [-0.17, 1.625, 0.425], [1.0, 1.05, 0.82]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.072, 20, 16), ink, [0.17, 1.625, 0.425], [1.0, 1.05, 0.82]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.024, 12, 10), white, [-0.145, 1.65, 0.482]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.024, 12, 10), white, [0.195, 1.65, 0.482]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.010, 10, 8), white, [-0.185, 1.61, 0.486]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.010, 10, 8), white, [0.155, 1.61, 0.486]));
+
+      // Relaxed brows and rosy cheeks.
+      beaver.add(mesh(new THREE.BoxGeometry(0.12, 0.020, 0.020), furDark, [-0.17, 1.715, 0.415], [1, 1, 1], [0, 0, -0.10]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.12, 0.020, 0.020), furDark, [0.17, 1.715, 0.415], [1, 1, 1], [0, 0, 0.10]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.062, 16, 12), material(0xe9a08b, 0.78), [-0.275, 1.43, 0.445], [1.1, 0.50, 0.30]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.062, 16, 12), material(0xe9a08b, 0.78), [0.275, 1.43, 0.445], [1.1, 0.50, 0.30]));
+
+      // Signature beaver teeth.
+      beaver.add(mesh(new THREE.BoxGeometry(0.092, 0.175, 0.058), tooth, [-0.050, 1.305, 0.565], [1, 1, 1], [0, 0, 0.018]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.092, 0.175, 0.058), tooth, [0.050, 1.305, 0.565], [1, 1, 1], [0, 0, -0.018]));
+
+      // Curved smile under the muzzle.
+      const smileMat = material(0x563321, 0.78);
+      const smile = mesh(
+        new THREE.TorusGeometry(0.145, 0.018, 8, 28, Math.PI),
+        smileMat,
+        [0, 1.375, 0.555],
+        [1, 0.62, 1],
+        [0, 0, Math.PI]
+      );
+      beaver.add(smile);
+      beaver.add(mesh(new THREE.SphereGeometry(0.026, 12, 10), smileMat, [-0.145, 1.375, 0.557], [1, 0.72, 0.72]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.026, 12, 10), smileMat, [0.145, 1.375, 0.557], [1, 0.72, 0.72]));
 
       // Paws with small claws for a more readable silhouette.
       [-0.44, 0.44].forEach((x) => {
@@ -232,7 +250,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(beacon);
       beaver.userData.beacon = beacon;
 
-      beaver.rotation.y = -0.16;
+      beaver.rotation.y = 0;
       return beaver;
     }
 
@@ -292,17 +310,12 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           playerTransform.scale += (playerTargetTransform.scale - playerTransform.scale) * follow;
         }
 
-        const targetHeadingRadians = playerHeadingDegrees * Math.PI / 180;
-        const headingDelta = Math.atan2(
-          Math.sin(targetHeadingRadians - displayedHeadingRadians),
-          Math.cos(targetHeadingRadians - displayedHeadingRadians),
-        );
-        displayedHeadingRadians += headingDelta * 0.18;
-
         const time = performance.now() * 0.001;
         const stride = Math.sin(time * 9.2);
         const trotLift = Math.abs(Math.sin(time * 9.2));
-        this.beaver.rotation.y = displayedHeadingRadians;
+
+        // Counter-rotate the avatar against the map so it keeps a stable screen-facing direction.
+        this.beaver.rotation.y = -map.getBearing() * Math.PI / 180;
 
         if (playerIsMoving) {
           this.beaver.position.y = 0.025 + trotLift * 0.075;
@@ -416,16 +429,29 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       if (centerMap) map.easeTo({ center: playerPosition, duration: 900, pitch: ${compact ? 52 : 66}, zoom:16.3 });
     }
     window.movePlayer = movePlayer;
+    function shortestBearingDelta(from, to) {
+      return ((to - from + 540) % 360) - 180;
+    }
+
+    function animateMapBearing() {
+      const current = map.getBearing();
+      const delta = shortestBearingDelta(current, targetMapBearing);
+      if (Math.abs(delta) > 0.05) {
+        map.setBearing(current + delta * 0.12);
+      }
+      bearingAnimationFrame = requestAnimationFrame(animateMapBearing);
+    }
+
     window.setPlayerHeading = (headingDegrees) => {
       if (!Number.isFinite(headingDegrees)) return;
-      playerHeadingDegrees = ((headingDegrees % 360) + 360) % 360;
-      map.triggerRepaint();
+      targetMapBearing = ((headingDegrees % 360) + 360) % 360;
+      if (!bearingAnimationFrame) bearingAnimationFrame = requestAnimationFrame(animateMapBearing);
     };
     window.setPlayerMoving = (moving) => {
       playerIsMoving = Boolean(moving);
       map.triggerRepaint();
     };
-    window.focusPlayer = () => map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:-24, duration:700 });
+    window.focusPlayer = () => map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:targetMapBearing, duration:700 });
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
       if (item) map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
