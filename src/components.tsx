@@ -155,7 +155,7 @@ export function BottomNav({ active, onSelect, role }) {
 }
 
 export function InitiativeRow({ item, onPress, joined = false }) {
-  const tone = item.type === 'Rajd' ? 'violet' : item.type === 'Szare miejsce' ? 'grey' : 'blue';
+  const tone = item.type === 'Rajd' ? 'violet' : item.type === 'Zwiad' ? 'grey' : 'blue';
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.initiativeRow, pressed && styles.pressed]}>
       <View style={[styles.markerBadge, { backgroundColor: item.color }]}>
@@ -163,7 +163,7 @@ export function InitiativeRow({ item, onPress, joined = false }) {
       </View>
       <View style={styles.rowCopy}>
         <View style={styles.rowTop}>
-          <StatusChip tone={tone}>{item.type}</StatusChip>
+          <StatusChip icon={item.type === 'Rajd' ? 'people-outline' : item.type === 'Zwiad' ? 'binoculars-outline' : 'flag-outline'} tone={tone}>{item.type}</StatusChip>
           <Text style={styles.distance}>{item.distance}</Text>
         </View>
         <Text style={styles.rowTitle}>{item.title}</Text>
