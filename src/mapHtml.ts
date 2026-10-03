@@ -199,66 +199,75 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
       // Stocky body underneath the clothes.
       beaver.add(mesh(new THREE.SphereGeometry(0.58, 34, 28), fur, [0, 0.76, 0], [0.94, 1.14, 0.80]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.35, 30, 24), cream, [0, 0.61, 0.42], [0.82, 0.88, 0.18]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.34, 30, 24), cream, [0, 0.60, 0.405], [0.80, 0.90, 0.12]));
 
-      // Puffer vest built from separate padded panels instead of one spherical shell.
-      // This keeps the cream belly visible below the vest, like the approved reference.
-      const leftVest = mesh(
-        new THREE.SphereGeometry(0.39, 30, 24),
-        jacketBlue,
-        [-0.17, 0.98, 0.22],
-        [0.78, 1.02, 0.42]
-      );
-      const rightVest = mesh(
-        new THREE.SphereGeometry(0.39, 30, 24),
-        jacketBlue,
-        [0.17, 0.98, 0.22],
-        [0.78, 1.02, 0.42]
-      );
-      const rearVest = mesh(
-        new THREE.SphereGeometry(0.46, 30, 24),
-        jacketBlue,
-        [0, 0.98, -0.18],
-        [0.92, 0.80, 0.42]
-      );
-      beaver.add(leftVest);
-      beaver.add(rightVest);
-      beaver.add(rearVest);
-      beaver.add(mesh(new THREE.BoxGeometry(0.62, 0.055, 0.035), jacketDark, [0, 0.72, 0.395]));
+      // Beveled puffer vest panels. Extruded rounded shapes read much closer to a real jacket than spheres.
+      const makeVestPanel = (side) => {
+        const shape = new THREE.Shape();
+        const inner = side * 0.018;
+        const outer = side * 0.43;
+        shape.moveTo(inner, 1.27);
+        shape.quadraticCurveTo(side * 0.20, 1.31, outer, 1.16);
+        shape.quadraticCurveTo(side * 0.47, 0.98, side * 0.40, 0.75);
+        shape.quadraticCurveTo(side * 0.31, 0.68, inner, 0.71);
+        shape.lineTo(inner, 1.27);
+        const geometry = new THREE.ExtrudeGeometry(shape, {
+          depth: 0.14,
+          steps: 1,
+          bevelEnabled: true,
+          bevelSegments: 4,
+          bevelSize: 0.030,
+          bevelThickness: 0.025,
+          curveSegments: 14,
+        });
+        const panel = mesh(geometry, jacketBlue, [0, 0, 0.315]);
+        panel.rotation.x = 0;
+        return panel;
+      };
+      beaver.add(makeVestPanel(-1));
+      beaver.add(makeVestPanel(1));
 
-      // Soft raised collar lobes with a clean V opening.
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 22, 18), jacketBlue, [-0.17, 1.22, 0.21], [1.05, 0.52, 0.50], [0, 0, -0.42]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 22, 18), jacketBlue, [0.17, 1.22, 0.21], [1.05, 0.52, 0.50], [0, 0, 0.42]));
+      // Rear padded section, mostly visible around the backpack.
+      beaver.add(mesh(new THREE.SphereGeometry(0.43, 28, 22), jacketBlue, [0, 0.98, -0.17], [0.92, 0.78, 0.34]));
 
-      // Subtle horizontal quilting on each front panel.
-      [0.82, 1.02].forEach((y) => {
-        beaver.add(mesh(new THREE.BoxGeometry(0.285, 0.018, 0.018), jacketDark, [-0.205, y, 0.408]));
-        beaver.add(mesh(new THREE.BoxGeometry(0.285, 0.018, 0.018), jacketDark, [0.205, y, 0.408]));
+      // Raised collar lobes create the same open-V read as the reference.
+      beaver.add(mesh(new THREE.SphereGeometry(0.15, 22, 18), jacketBlue, [-0.16, 1.25, 0.24], [1.10, 0.48, 0.42], [0, 0, -0.42]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.15, 22, 18), jacketBlue, [0.16, 1.25, 0.24], [1.10, 0.48, 0.42], [0, 0, 0.42]));
+
+      // Clean center zipper and pull.
+      beaver.add(mesh(new THREE.BoxGeometry(0.022, 0.56, 0.026), zipperBlue, [0, 0.99, 0.478]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.050, 0.036, 0.024), zipperMetal, [0.024, 1.13, 0.492], [1, 1, 1], [0, 0, -0.15]));
+
+      // Two simple slanted pocket openings; no fake quilting bars.
+      beaver.add(mesh(new THREE.BoxGeometry(0.17, 0.035, 0.022), jacketDark, [-0.225, 0.80, 0.486], [1, 1, 1], [0, 0, -0.38]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.17, 0.035, 0.022), jacketDark, [0.225, 0.80, 0.486], [1, 1, 1], [0, 0, 0.38]));
+
+
+      // Rounded rectangular backpack shell, beveled for a softer reference-like profile.
+      const backpackShape = new THREE.Shape();
+      backpackShape.moveTo(-0.31, 0.64);
+      backpackShape.quadraticCurveTo(-0.38, 0.67, -0.38, 0.80);
+      backpackShape.lineTo(-0.38, 1.20);
+      backpackShape.quadraticCurveTo(-0.36, 1.32, -0.23, 1.35);
+      backpackShape.quadraticCurveTo(0, 1.40, 0.23, 1.35);
+      backpackShape.quadraticCurveTo(0.36, 1.32, 0.38, 1.20);
+      backpackShape.lineTo(0.38, 0.80);
+      backpackShape.quadraticCurveTo(0.38, 0.67, 0.31, 0.64);
+      backpackShape.closePath();
+      const backpackGeometry = new THREE.ExtrudeGeometry(backpackShape, {
+        depth: 0.20,
+        steps: 1,
+        bevelEnabled: true,
+        bevelSegments: 4,
+        bevelSize: 0.035,
+        bevelThickness: 0.028,
+        curveSegments: 16,
       });
-
-      // Front zipper and small pull.
-      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.66, 0.030), zipperBlue, [0, 0.99, 0.417]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.052, 0.038, 0.026), zipperMetal, [0.025, 1.12, 0.435], [1, 1, 1], [0, 0, -0.15]));
-
-      // Slanted padded pockets.
-      beaver.add(mesh(new THREE.BoxGeometry(0.18, 0.050, 0.026), jacketDark, [-0.205, 0.80, 0.424], [1, 1, 1], [0, 0, -0.35]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.18, 0.050, 0.026), jacketDark, [0.205, 0.80, 0.424], [1, 1, 1], [0, 0, 0.35]));
-
-
-      // Large purple backpack inspired by the reference, with rounded body and front pocket.
-      const backpackBody = mesh(
-        new THREE.SphereGeometry(0.42, 30, 24),
-        backpackPurple,
-        [0, 0.98, -0.50],
-        [0.86, 1.02, 0.30]
-      );
+      const backpackBody = mesh(backpackGeometry, backpackPurple, [0, 0, -0.69]);
       beaver.add(backpackBody);
-      beaver.add(mesh(
-        new THREE.SphereGeometry(0.29, 26, 20),
-        backpackDark,
-        [0, 0.73, -0.585],
-        [0.84, 0.70, 0.20]
-      ));
+
+      // Soft external pocket on the back face.
+      beaver.add(mesh(new THREE.SphereGeometry(0.24, 26, 20), backpackDark, [0, 0.77, -0.705], [1.05, 0.64, 0.16]));
 
       // Backpack top seam and small handle.
       beaver.add(mesh(new THREE.TorusGeometry(0.19, 0.022, 8, 24, Math.PI), backpackTrim, [0, 1.30, -0.51], [1, 1, 1], [Math.PI / 2, 0, 0]));
@@ -275,19 +284,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       // Rear vest shoulder pad smooths the neck-to-back transition under the backpack.
       beaver.add(mesh(new THREE.SphereGeometry(0.28, 24, 18), jacketBlue, [0, 1.18, -0.20], [1.05, 0.44, 0.28]));
 
-      // Backpack side gussets make the bag read as a real volume from 3/4 and rear views.
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 20, 16), backpackDark, [-0.31, 0.92, -0.49], [0.52, 1.35, 0.78]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.16, 20, 16), backpackDark, [0.31, 0.92, -0.49], [0.52, 1.35, 0.78]));
-
-      // Rear face pocket, seam and logo panel.
-      beaver.add(mesh(new THREE.SphereGeometry(0.245, 24, 20), backpackPurple, [0, 0.79, -0.665], [0.92, 0.66, 0.16]));
-
       // Rear-visible padded shoulder straps hugging the jacket.
       beaver.add(mesh(new THREE.CylinderGeometry(0.050, 0.055, 0.58, 12), backpackPurple, [-0.285, 1.03, -0.19], [1.0, 1.0, 0.78], [0.10, 0, -0.20]));
       beaver.add(mesh(new THREE.CylinderGeometry(0.050, 0.055, 0.58, 12), backpackPurple, [0.285, 1.03, -0.19], [1.0, 1.0, 0.78], [0.10, 0, 0.20]));
-
-      // Bottom reinforcement gives the backpack a clean finished silhouette above the tail.
-      beaver.add(mesh(new THREE.SphereGeometry(0.26, 22, 18), backpackTrim, [0, 0.58, -0.53], [1.00, 0.26, 0.46]));
 
       // Arms: chunky cylinders + round paws, compatible with trot animation.
       const leftArm = mesh(new THREE.CylinderGeometry(0.105, 0.125, 0.40, 16), fur, [-0.50, 0.88, 0.08], [1, 1, 1], [0, 0, -0.34]);
@@ -320,10 +319,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       // Open expressive eyes: large white area and warm iris, without heavy socket rings.
       const eyeY = 1.705;
       const eyeZ = 0.435;
-      [-0.185, 0.185].forEach((x, index) => {
+      [-0.185, 0.185].forEach((x) => {
         beaver.add(mesh(new THREE.SphereGeometry(0.120, 32, 26), white, [x, eyeY, eyeZ], [0.98, 1.28, 0.72]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.076, 28, 22), iris, [x + (index === 0 ? 0.010 : -0.010), eyeY - 0.006, 0.515], [1, 1.12, 0.78]));
-        beaver.add(mesh(new THREE.SphereGeometry(0.045, 22, 18), eyeGloss, [x + (index === 0 ? 0.013 : -0.013), eyeY - 0.008, 0.560], [1, 1.06, 0.82]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.076, 28, 22), iris, [x, eyeY - 0.006, 0.515], [1, 1.12, 0.78]));
+        beaver.add(mesh(new THREE.SphereGeometry(0.045, 22, 18), eyeGloss, [x, eyeY - 0.008, 0.560], [1, 1.06, 0.82]));
         beaver.add(mesh(new THREE.SphereGeometry(0.018, 12, 10), white, [x - 0.021, eyeY + 0.045, 0.591]));
         beaver.add(mesh(new THREE.SphereGeometry(0.008, 10, 8), white, [x + 0.019, eyeY - 0.022, 0.594]));
       });
@@ -337,8 +336,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       browPart(0.235, 1.858, 0.458, 0.88, 0.18);
 
       // Compact plush muzzle: symmetrical and slightly higher to avoid a heavy lower face.
-      beaver.add(mesh(new THREE.SphereGeometry(0.220, 34, 28), creamLight, [-0.140, 1.495, 0.520], [1.08, 0.76, 0.66]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.220, 34, 28), creamLight, [0.140, 1.495, 0.520], [1.08, 0.76, 0.66]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.214, 34, 28), creamLight, [-0.136, 1.495, 0.520], [1.06, 0.76, 0.66]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.214, 34, 28), creamLight, [0.136, 1.495, 0.520], [1.06, 0.76, 0.66]));
 
       // Rounded glossy nose, centered tightly above the muzzle.
       beaver.add(mesh(new THREE.SphereGeometry(0.108, 30, 24), noseMat, [0, 1.590, 0.675], [1.32, 0.88, 0.78]));
