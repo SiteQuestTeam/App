@@ -66,6 +66,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     let playerTransform = null;
     let playerTargetTransform = null;
     let playerHasFix = false;
+    let playerAnchored = false;
     let targetMapBearing = -24;
     let lastAppliedMapBearing = -24;
     let userInteractingWithMap = false;
@@ -431,7 +432,22 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       playerHasFix = true;
       updatePlayerTransform(lng, lat, isFirstFix);
       map.triggerRepaint();
-      if (centerMap) map.easeTo({ center: playerPosition, duration: 700, pitch: ${compact ? 52 : 66}, zoom:16.3 });
+
+      if (isFirstFix || centerMap) {
+        playerAnchored = true;
+        send('anchor', { active: true });
+      }
+
+      if (playerAnchored) {
+        map.easeTo({
+          center: playerPosition,
+          duration: isFirstFix ? 700 : 420,
+          pitch: ${compact ? 52 : 66},
+          zoom: Math.max(map.getZoom(), 16.3),
+          bearing: targetMapBearing,
+          easing: (t) => 1 - Math.pow(1 - t, 3),
+        });
+      }
     }
     window.movePlayer = movePlayer;
     function shortestBearingDelta(from, to) {
@@ -441,6 +457,11 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     const suspendHeadingForGesture = () => {
       userInteractingWithMap = true;
       headingResumeAt = Date.now() + 1800;
+      if (playerAnchored) {
+        playerAnchored = false;
+        map.stop();
+        send('anchor', { active: false });
+      }
     };
     const resumeHeadingAfterGesture = () => {
       userInteractingWithMap = false;
@@ -458,7 +479,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       if (!Number.isFinite(headingDegrees)) return;
       targetMapBearing = ((headingDegrees % 360) + 360) % 360;
 
-      if (userInteractingWithMap || Date.now() < headingResumeAt) return;
+      if (!playerAnchored || userInteractingWithMap || Date.now() < headingResumeAt) return;
 
       const deltaFromApplied = Math.abs(shortestBearingDelta(lastAppliedMapBearing, targetMapBearing));
       if (deltaFromApplied < 10) return;
@@ -476,7 +497,20 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     };
     window.focusPlayer = () => {
       if (!playerHasFix) return;
-      map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:targetMapBearing, duration:700 });
+      playerAnchored = true;
+      userInteractingWithMap = false;
+      headingResumeAt = 0;
+      lastAppliedMapBearing = targetMapBearing;
+      send('anchor', { active: true });
+      map.stop();
+      map.easeTo({
+        center: playerPosition,
+        zoom: 16.5,
+        pitch: ${compact ? 52 : 66},
+        bearing: targetMapBearing,
+        duration: 700,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+      });
     };
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
