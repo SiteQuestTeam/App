@@ -1,4 +1,6 @@
-import type { Initiative } from './types';\n\nexport const KRAKOW_CENTER = { latitude: 50.0647, longitude: 19.945 };
+import type { Initiative } from './types';
+
+export const KRAKOW_CENTER = { latitude: 50.0647, longitude: 19.945 };
 
 export const initiatives: Initiative[] = [
   {
@@ -102,4 +104,4 @@ export const categories = [
   ['Turystyka', 'compass'],
   ['Edukacja', 'book'],
   ['Inne lokalne', 'grid'],
-] as const;\n
+] as const;

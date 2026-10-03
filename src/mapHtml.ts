@@ -1,4 +1,5 @@
-import { KRAKOW_CENTER } from './data';\nimport type { Initiative, MapHtmlOptions } from './types';
+import { KRAKOW_CENTER } from './data';
+import type { Initiative, MapHtmlOptions } from './types';
 
 const escapeJson = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 
