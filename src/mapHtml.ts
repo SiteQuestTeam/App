@@ -474,7 +474,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       playerIsMoving = Boolean(moving);
       map.triggerRepaint();
     };
-    window.focusPlayer = () => map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:targetMapBearing, duration:700 });
+    window.focusPlayer = () => {
+      if (!playerHasFix) return;
+      map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:targetMapBearing, duration:700 });
+    };
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
       if (item) map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
