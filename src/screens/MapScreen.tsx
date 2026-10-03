@@ -12,6 +12,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const webView = useRef(null);
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
+  const [anchored, setAnchored] = useState(false);
   const latestLocation = useRef(null);
   const acceptedLocation = useRef(null);
   const latestHeading = useRef(0);
@@ -160,6 +161,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     try {
       const message = JSON.parse(event.nativeEvent.data);
       if (message.type === 'initiative') setSelectedId(message.id);
+      if (message.type === 'anchor') setAnchored(Boolean(message.active));
     } catch {
       // Ignore messages that do not come from the map bridge.
     }
@@ -233,9 +235,9 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         <Pressable
           accessibilityLabel="Wycentruj mapę na swojej pozycji"
           onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
-          style={styles.roundAction}
+          style={[styles.roundAction, anchored && styles.roundActionActive]}
         >
-          <Ionicons color={colors.signal} name="locate" size={22} />
+          <Ionicons color={anchored ? colors.surface : colors.signal} name="locate" size={22} />
         </Pressable>
       </View>
 
@@ -290,6 +292,7 @@ const styles = StyleSheet.create({
   pointsText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.5 },
   mapActions: { gap: 9, position: 'absolute', right: 14, top: 130, zIndex: 5 },
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 23, borderWidth: 1, height: 46, justifyContent: 'center', width: 46, ...shadow },
+  roundActionActive: { backgroundColor: colors.signal, borderColor: colors.signal },
   quickCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 88, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, zIndex: 5, ...shadow },
   quickMarker: { alignItems: 'center', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
   quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 17 },
