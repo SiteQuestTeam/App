@@ -61,6 +61,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
+    let playerTargetTransform = null;
+    let playerHeadingDegrees = 0;
+    let displayedHeadingRadians = 0;
+    let playerIsMoving = false;
 
     function getPlayerElevation(lng, lat) {
       try {
@@ -73,9 +77,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
     }
 
-    function updatePlayerTransform(lng, lat) {
+    function createPlayerTransform(lng, lat) {
       const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], getPlayerElevation(lng, lat));
-      playerTransform = {
+      return {
         translateX: mercator.x,
         translateY: mercator.y,
         translateZ: mercator.z,
@@ -86,7 +90,14 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       };
     }
 
-    updatePlayerTransform(playerPosition[0], playerPosition[1]);
+    function updatePlayerTransform(lng, lat, immediate = false) {
+      playerTargetTransform = createPlayerTransform(lng, lat);
+      if (!playerTransform || immediate) {
+        playerTransform = { ...playerTargetTransform };
+      }
+    }
+
+    updatePlayerTransform(playerPosition[0], playerPosition[1], true);
 
     function material(color, roughness = 0.72, metalness = 0.02) {
       return new THREE.MeshStandardMaterial({ color, roughness, metalness });
@@ -126,9 +137,11 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         [0.05, 0.10, -0.48]
       ));
 
-      // Feet.
-      beaver.add(mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [-0.23, 0.17, 0.04], [1.15, 0.55, 1.35]));
-      beaver.add(mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [0.23, 0.17, 0.04], [1.15, 0.55, 1.35]));
+      // Feet — references are kept so the avatar can trot while the Player moves.
+      const leftFoot = mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [-0.23, 0.17, 0.04], [1.15, 0.55, 1.35]);
+      const rightFoot = mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [0.23, 0.17, 0.04], [1.15, 0.55, 1.35]);
+      beaver.add(leftFoot);
+      beaver.add(rightFoot);
 
       // Body and belly.
       beaver.add(mesh(new THREE.SphereGeometry(0.52, 22, 18), fur, [0, 0.73, 0], [0.88, 1.18, 0.72]));
@@ -139,8 +152,11 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.SphereGeometry(0.10, 18, 14), cream, [0, 1.02, 0.46], [1.15, 0.75, 0.35]));
 
       // Arms.
-      beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [-0.44, 0.79, 0.08], [1, 1, 1], [0, 0, -0.36]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [0.44, 0.79, 0.08], [1, 1, 1], [0, 0, 0.36]));
+      const leftArm = mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [-0.44, 0.79, 0.08], [1, 1, 1], [0, 0, -0.36]);
+      const rightArm = mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [0.44, 0.79, 0.08], [1, 1, 1], [0, 0, 0.36]);
+      beaver.add(leftArm);
+      beaver.add(rightArm);
+      beaver.userData.trotParts = { leftFoot, rightFoot, leftArm, rightArm };
 
       // Head and ears.
       beaver.add(mesh(new THREE.SphereGeometry(0.47, 24, 20), furLight, [0, 1.53, 0.02], [1.02, 0.91, 0.88]));
@@ -268,9 +284,44 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
         this.camera.projectionMatrix = mapMatrix.multiply(modelMatrix);
 
+        if (playerTargetTransform) {
+          const follow = playerIsMoving ? 0.14 : 0.22;
+          playerTransform.translateX += (playerTargetTransform.translateX - playerTransform.translateX) * follow;
+          playerTransform.translateY += (playerTargetTransform.translateY - playerTransform.translateY) * follow;
+          playerTransform.translateZ += (playerTargetTransform.translateZ - playerTransform.translateZ) * follow;
+          playerTransform.scale += (playerTargetTransform.scale - playerTransform.scale) * follow;
+        }
+
+        const targetHeadingRadians = playerHeadingDegrees * Math.PI / 180;
+        const headingDelta = Math.atan2(
+          Math.sin(targetHeadingRadians - displayedHeadingRadians),
+          Math.cos(targetHeadingRadians - displayedHeadingRadians),
+        );
+        displayedHeadingRadians += headingDelta * 0.18;
+
         const time = performance.now() * 0.001;
-        this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
-        this.beaver.rotation.y = -0.16 + Math.sin(time * 1.3) * 0.035;
+        const stride = Math.sin(time * 9.2);
+        const trotLift = Math.abs(Math.sin(time * 9.2));
+        this.beaver.rotation.y = displayedHeadingRadians;
+
+        if (playerIsMoving) {
+          this.beaver.position.y = 0.025 + trotLift * 0.075;
+          this.beaver.userData.trotParts.leftArm.rotation.z = -0.36 + stride * 0.22;
+          this.beaver.userData.trotParts.rightArm.rotation.z = 0.36 - stride * 0.22;
+          this.beaver.userData.trotParts.leftFoot.position.z = 0.04 + stride * 0.09;
+          this.beaver.userData.trotParts.rightFoot.position.z = 0.04 - stride * 0.09;
+          this.beaver.userData.trotParts.leftFoot.rotation.x = stride * 0.34;
+          this.beaver.userData.trotParts.rightFoot.rotation.x = -stride * 0.34;
+        } else {
+          this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
+          this.beaver.userData.trotParts.leftArm.rotation.z += (-0.36 - this.beaver.userData.trotParts.leftArm.rotation.z) * 0.18;
+          this.beaver.userData.trotParts.rightArm.rotation.z += (0.36 - this.beaver.userData.trotParts.rightArm.rotation.z) * 0.18;
+          this.beaver.userData.trotParts.leftFoot.position.z += (0.04 - this.beaver.userData.trotParts.leftFoot.position.z) * 0.18;
+          this.beaver.userData.trotParts.rightFoot.position.z += (0.04 - this.beaver.userData.trotParts.rightFoot.position.z) * 0.18;
+          this.beaver.userData.trotParts.leftFoot.rotation.x *= 0.82;
+          this.beaver.userData.trotParts.rightFoot.rotation.x *= 0.82;
+        }
+
         this.beaver.userData.beacon?.children.forEach((part) => {
           if (!part.userData.beaconRing) return;
           const pulse = (Math.sin(time * 2.4 + part.userData.phase) + 1) * 0.5;
@@ -353,18 +404,27 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
-      updatePlayerTransform(playerPosition[0], playerPosition[1]);
+      updatePlayerTransform(playerPosition[0], playerPosition[1], true);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
 
     function movePlayer(lng, lat, centerMap = true) {
       playerPosition = [lng, lat];
-      updatePlayerTransform(lng, lat);
+      updatePlayerTransform(lng, lat, false);
       map.triggerRepaint();
       if (centerMap) map.easeTo({ center: playerPosition, duration: 900, pitch: ${compact ? 52 : 66}, zoom:16.3 });
     }
     window.movePlayer = movePlayer;
+    window.setPlayerHeading = (headingDegrees) => {
+      if (!Number.isFinite(headingDegrees)) return;
+      playerHeadingDegrees = ((headingDegrees % 360) + 360) % 360;
+      map.triggerRepaint();
+    };
+    window.setPlayerMoving = (moving) => {
+      playerIsMoving = Boolean(moving);
+      map.triggerRepaint();
+    };
     window.focusPlayer = () => map.easeTo({ center:playerPosition, zoom:16.5, pitch:${compact ? 52 : 66}, bearing:-24, duration:700 });
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
