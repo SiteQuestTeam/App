@@ -24,15 +24,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     html,body,#map{width:100%;height:100%;margin:0;overflow:hidden;background:#EAF0F7}
     *{box-sizing:border-box;font-family:Arial,sans-serif}
     #map:after{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,249,252,.06),rgba(23,70,183,.025) 55%,rgba(16,24,40,.05))}
-    .marker{position:relative;width:62px;height:88px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transform-origin:50% 100%}
-    .marker-beam{position:absolute;top:43px;width:5px;height:27px;border-radius:999px;background:linear-gradient(180deg,currentColor,rgba(255,255,255,.35));box-shadow:0 4px 10px rgba(16,24,40,.16)}
-    .marker-dot{position:relative;width:54px;height:54px;border:4px solid white;border-radius:50%;display:grid;place-items:center;color:white;font-weight:900;font-size:18px;box-shadow:0 0 0 3px currentColor,0 9px 20px rgba(16,24,40,.22)}
-    .marker-dot:after{content:"";position:absolute;inset:-8px;border:2px solid currentColor;border-radius:50%;opacity:.2;animation:markerPulse 2.6s ease-out infinite}
-    .marker-label{position:absolute;top:76px;white-space:nowrap;padding:6px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.96);color:#101828;font-size:10px;font-weight:700;box-shadow:0 6px 18px rgba(16,24,40,.11)}
-    @keyframes markerPulse{0%{transform:scale(.78);opacity:.24}70%,100%{transform:scale(1.3);opacity:0}}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
     .maplibregl-ctrl-logo{display:none!important}
-    ${compact ? '.marker-label{display:none}.maplibregl-ctrl-bottom-right{display:none}' : ''}
+    ${compact ? '.maplibregl-ctrl-bottom-right{display:none}' : ''}
   </style>
 </head>
 <body>
@@ -63,6 +57,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
+    const INITIATIVE_METERS_PER_UNIT = ${compact ? 5.5 : 7.0};
     let playerTransform = null;
     let playerTargetTransform = null;
     let playerHasFix = false;
@@ -499,6 +494,284 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     }
     // BEAVER_MODEL_END
 
+    function getInitiativeElevation(lng, lat) {
+      try {
+        const point = map.project([lng, lat]);
+        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
+        const buildingHeight = Math.max(
+          0,
+          ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)),
+        );
+        return buildingHeight + 0.8;
+      } catch {
+        return 0.8;
+      }
+    }
+
+    function createInitiativeLabelTexture(text) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, 256, 256);
+      ctx.fillStyle = 'rgba(255,255,255,0.98)';
+      ctx.beginPath();
+      ctx.arc(128, 128, 104, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.lineWidth = 12;
+      ctx.strokeStyle = 'rgba(16,24,40,0.12)';
+      ctx.stroke();
+
+      ctx.fillStyle = '#101828';
+      ctx.font = '900 118px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(text || '•').slice(0, 2), 128, 136);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+      return texture;
+    }
+
+    function createInitiative3D(item) {
+      const group = new THREE.Group();
+      group.name = 'Initiative ' + item.id;
+
+      const color = new THREE.Color(item.color);
+      const baseMat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.42,
+        metalness: 0.04,
+      });
+      const darkColor = color.clone().multiplyScalar(0.72);
+      const darkMat = new THREE.MeshStandardMaterial({
+        color: darkColor,
+        roughness: 0.58,
+        metalness: 0.02,
+      });
+      const whiteMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.30,
+        metalness: 0.01,
+      });
+      const glowMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      // Ground plinth gives the marker actual contact with the 3D map.
+      group.add(mesh(
+        new THREE.CylinderGeometry(0.42, 0.50, 0.14, 28),
+        darkMat,
+        [0, 0.08, 0],
+      ));
+      group.add(mesh(
+        new THREE.CylinderGeometry(0.34, 0.40, 0.08, 28),
+        baseMat,
+        [0, 0.18, 0],
+      ));
+
+      // Slender pin stem.
+      group.add(mesh(
+        new THREE.CylinderGeometry(0.065, 0.095, 1.05, 18),
+        baseMat,
+        [0, 0.74, 0],
+      ));
+
+      // White rim + colored orb makes the point readable from any map bearing.
+      group.add(mesh(
+        new THREE.SphereGeometry(0.37, 30, 24),
+        whiteMat,
+        [0, 1.45, 0],
+      ));
+      group.add(mesh(
+        new THREE.SphereGeometry(0.305, 30, 24),
+        baseMat,
+        [0, 1.45, 0],
+      ));
+
+      // Floating letter/icon always faces the camera.
+      const labelMat = new THREE.SpriteMaterial({
+        map: createInitiativeLabelTexture(item.marker),
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const label = new THREE.Sprite(labelMat);
+      label.position.set(0, 1.45, 0.34);
+      label.scale.set(0.48, 0.48, 0.48);
+      label.renderOrder = 20;
+      group.add(label);
+
+      // Horizontal orbit ring around the orb.
+      const halo = mesh(
+        new THREE.TorusGeometry(0.46, 0.025, 10, 36),
+        glowMat.clone(),
+        [0, 1.45, 0],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
+      );
+      halo.userData.initiativeHalo = true;
+      group.add(halo);
+
+      // Ground pulse makes locations easy to spot without reverting to a flat DOM marker.
+      const groundPulse = mesh(
+        new THREE.TorusGeometry(0.58, 0.028, 10, 40),
+        glowMat.clone(),
+        [0, 0.12, 0],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
+      );
+      groundPulse.userData.initiativeGroundPulse = true;
+      group.add(groundPulse);
+
+      // Vertical beacon connects the 3D location to the visual language of the Player beacon.
+      const beam = mesh(
+        new THREE.CylinderGeometry(0.032, 0.075, 3.8, 16, 1, true),
+        glowMat.clone(),
+        [0, 3.42, 0],
+      );
+      beam.userData.initiativeBeam = true;
+      group.add(beam);
+
+      group.userData.itemId = item.id;
+      group.userData.baseY = 0;
+      return group;
+    }
+
+    const initiative3DLayer = {
+      id: 'sitequest-initiatives-3d',
+      type: 'custom',
+      renderingMode: '3d',
+      onAdd(mapInstance, gl) {
+        this.map = mapInstance;
+        this.camera = new THREE.Camera();
+        this.scene = new THREE.Scene();
+        this.entries = markers.map((item, index) => {
+          const model = createInitiative3D(item);
+          const mercator = maplibregl.MercatorCoordinate.fromLngLat(
+            item.coordinates,
+            getInitiativeElevation(item.coordinates[0], item.coordinates[1]),
+          );
+          const modelScale = mercator.meterInMercatorCoordinateUnits() * INITIATIVE_METERS_PER_UNIT;
+          const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+          const modelMatrix = new THREE.Matrix4()
+            .makeTranslation(mercator.x, mercator.y, mercator.z)
+            .scale(new THREE.Vector3(modelScale, -modelScale, modelScale))
+            .multiply(rotationX);
+
+          model.matrixAutoUpdate = false;
+          model.matrix.copy(modelMatrix);
+          model.userData.phase = index * 0.77;
+          this.scene.add(model);
+          return { item, model };
+        });
+
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x40526a, 1.65));
+        const key = new THREE.DirectionalLight(0xffffff, 2.0);
+        key.position.set(-3, 6, 5);
+        this.scene.add(key);
+        const rim = new THREE.DirectionalLight(0x9fb8ff, 0.9);
+        rim.position.set(4, 3, -4);
+        this.scene.add(rim);
+
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: mapInstance.getCanvas(),
+          context: gl,
+          antialias: true,
+        });
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.04;
+        this.renderer.autoClear = false;
+      },
+      render(gl, args) {
+        const projectionMatrix = args?.defaultProjectionData?.mainMatrix || args;
+        if (!projectionMatrix || projectionMatrix.length !== 16) return;
+
+        this.camera.projectionMatrix = new THREE.Matrix4().fromArray(projectionMatrix);
+        const time = performance.now() * 0.001;
+
+        this.entries.forEach(({ item, model }) => {
+          const selected = window.__selectedInitiativeId === item.id;
+          const bob = Math.sin(time * 2.15 + model.userData.phase) * 0.035;
+
+          model.children.forEach((part) => {
+            if (part.userData.initiativeHalo) {
+              part.rotation.z = time * 0.55 + model.userData.phase;
+              const pulse = 0.92 + Math.sin(time * 2.2 + model.userData.phase) * 0.08;
+              part.scale.set(pulse, pulse, pulse);
+              part.material.opacity = selected ? 0.52 : 0.30;
+            }
+            if (part.userData.initiativeGroundPulse) {
+              const pulse = (Math.sin(time * 1.85 + model.userData.phase) + 1) * 0.5;
+              const scale = 0.86 + pulse * 0.42;
+              part.scale.set(scale, scale, scale);
+              part.material.opacity = 0.10 + (1 - pulse) * (selected ? 0.46 : 0.26);
+            }
+            if (part.userData.initiativeBeam) {
+              part.material.opacity = selected ? 0.44 : 0.22;
+            }
+          });
+
+          // Matrix is in Mercator coordinates; offset only the local marker meshes for animation.
+          model.children.forEach((part) => {
+            if (!part.isSprite && !part.userData.initiativeHalo && !part.userData.initiativeGroundPulse && !part.userData.initiativeBeam) {
+              part.position.y += bob - (part.userData.lastInitiativeBob || 0);
+              part.userData.lastInitiativeBob = bob;
+            }
+          });
+        });
+
+        this.renderer.resetState();
+        this.renderer.render(this.scene, this.camera);
+        this.map.triggerRepaint();
+      },
+    };
+
+    window.__selectedInitiativeId = null;
+
+    function activateInitiative(item) {
+      if (!item) return;
+      window.__selectedInitiativeId = item.id;
+      send('initiative', { id: item.id });
+      map.easeTo({
+        center: item.coordinates,
+        duration: 650,
+        zoom: 16.8,
+        pitch: 68,
+        bearing: map.getBearing(),
+      });
+      map.triggerRepaint();
+    }
+
+    function findInitiativeAtPoint(point) {
+      let winner = null;
+      let winnerDistance = 64;
+      markers.forEach((item) => {
+        const projected = map.project(item.coordinates);
+        const dx = projected.x - point.x;
+        const dy = projected.y - point.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < winnerDistance) {
+          winner = item;
+          winnerDistance = distance;
+        }
+      });
+      return winner;
+    }
+
+    map.on('click', (event) => {
+      const item = findInitiativeAtPoint(event.point);
+      if (item) activateInitiative(item);
+    });
+
     const player3DLayer = {
       id: 'sitequest-player-beaver-3d',
       type: 'custom',
@@ -611,19 +884,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
     };
 
-    markers.forEach((item) => {
-      const element = document.createElement('div');
-      element.className = 'marker';
-      element.style.color = item.color;
-      element.innerHTML = '<span class="marker-dot" style="background:'+item.color+'">'+item.marker+'</span><span class="marker-beam"></span><span class="marker-label">'+item.title+'</span>';
-      element.addEventListener('click', (event) => {
-        event.stopPropagation();
-        send('initiative', { id: item.id });
-        map.easeTo({ center: item.coordinates, duration: 650, zoom: 16.8, pitch: 68, bearing: map.getBearing() });
-      });
-      new maplibregl.Marker({ element, anchor: 'bottom' }).setLngLat(item.coordinates).addTo(map);
-    });
-
     function tuneBaseStyle() {
       const layers = map.getStyle()?.layers || [];
       layers.forEach((layer) => {
@@ -677,6 +937,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
+      if (!map.getLayer(initiative3DLayer.id)) map.addLayer(initiative3DLayer);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
@@ -765,12 +1026,14 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     window.focusInitiative = (id) => {
       const item = markers.find((marker) => marker.id === id);
       if (!item) return;
+      window.__selectedInitiativeId = item.id;
       if (playerAnchored) {
         playerAnchored = false;
         send('anchor', { active: false });
       }
       map.stop();
       map.easeTo({ center:item.coordinates, zoom:16.8, pitch:${compact ? 52 : 68}, duration:700 });
+      map.triggerRepaint();
     };
     // Tapping the map never changes the Player's GPS position.
   </script>
