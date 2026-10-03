@@ -460,21 +460,22 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         const stride = Math.sin(time * 9.2);
         const trotLift = Math.abs(Math.sin(time * 9.2));
 
-        // Counter-rotate the avatar against the map so it keeps a stable screen-facing direction.
-        this.beaver.rotation.y = -map.getBearing() * Math.PI / 180;
+        // Navigation pose: the beaver faces the direction of the map.
+        // The camera therefore sees its backpack/back while the avatar looks "forward".
+        this.beaver.rotation.y = Math.PI - map.getBearing() * Math.PI / 180;
 
         if (playerIsMoving) {
           this.beaver.position.y = 0.025 + trotLift * 0.075;
-          this.beaver.userData.trotParts.leftArm.rotation.z = -0.36 + stride * 0.22;
-          this.beaver.userData.trotParts.rightArm.rotation.z = 0.36 - stride * 0.22;
+          this.beaver.userData.trotParts.leftArm.rotation.z = -0.32 + stride * 0.14;
+          this.beaver.userData.trotParts.rightArm.rotation.z = 0.32 - stride * 0.14;
           this.beaver.userData.trotParts.leftFoot.position.z = 0.04 + stride * 0.09;
           this.beaver.userData.trotParts.rightFoot.position.z = 0.04 - stride * 0.09;
           this.beaver.userData.trotParts.leftFoot.rotation.x = stride * 0.34;
           this.beaver.userData.trotParts.rightFoot.rotation.x = -stride * 0.34;
         } else {
           this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
-          this.beaver.userData.trotParts.leftArm.rotation.z += (-0.36 - this.beaver.userData.trotParts.leftArm.rotation.z) * 0.18;
-          this.beaver.userData.trotParts.rightArm.rotation.z += (0.36 - this.beaver.userData.trotParts.rightArm.rotation.z) * 0.18;
+          this.beaver.userData.trotParts.leftArm.rotation.z += (-0.32 - this.beaver.userData.trotParts.leftArm.rotation.z) * 0.16;
+          this.beaver.userData.trotParts.rightArm.rotation.z += (0.32 - this.beaver.userData.trotParts.rightArm.rotation.z) * 0.16;
           this.beaver.userData.trotParts.leftFoot.position.z += (0.04 - this.beaver.userData.trotParts.leftFoot.position.z) * 0.18;
           this.beaver.userData.trotParts.rightFoot.position.z += (0.04 - this.beaver.userData.trotParts.rightFoot.position.z) * 0.18;
           this.beaver.userData.trotParts.leftFoot.rotation.x *= 0.82;
