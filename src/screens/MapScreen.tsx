@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -12,7 +12,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const webView = useRef(null);
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
-  const [locating, setLocating] = useState(false);
   const latestLocation = useRef(null);
   const acceptedLocation = useRef(null);
   const latestHeading = useRef(0);
@@ -166,34 +165,6 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     }
   };
 
-  const findMe = async () => {
-    setLocating(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Brak dostępu do lokalizacji', 'Awatar może korzystać wyłącznie z rzeczywistej pozycji GPS.');
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
-      const accuracy = Number(location.coords.accuracy ?? Infinity);
-      if (!Number.isFinite(accuracy) || accuracy > 35) {
-        Alert.alert('Słaby sygnał GPS', 'Poczekaj na dokładniejszy sygnał lokalizacji i spróbuj ponownie.');
-        return;
-      }
-
-      latestLocation.current = location;
-      acceptedLocation.current = location;
-      webView.current?.injectJavaScript(
-        `window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);true;`,
-      );
-    } catch {
-      Alert.alert('Nie udało się ustalić pozycji', 'Sprawdź, czy lokalizacja GPS jest włączona i spróbuj ponownie.');
-    } finally {
-      setLocating(false);
-    }
-  };
-
   return (
     <View style={styles.screen}>
       {mapError ? (
@@ -259,11 +230,12 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
       </View>
 
       <View style={styles.mapActions}>
-        <Pressable onPress={findMe} style={styles.roundAction}>
-          {locating ? <ActivityIndicator color={colors.signal} size="small" /> : <Ionicons color={colors.signal} name="locate" size={22} />}
-        </Pressable>
-        <Pressable onPress={() => webView.current?.injectJavaScript('window.focusPlayer();true;')} style={styles.roundAction}>
-          <Ionicons color={colors.signal} name="navigate" size={22} />
+        <Pressable
+          accessibilityLabel="Wycentruj mapę na swojej pozycji"
+          onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
+          style={styles.roundAction}
+        >
+          <Ionicons color={colors.signal} name="locate" size={22} />
         </Pressable>
       </View>
 
