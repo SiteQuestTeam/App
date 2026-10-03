@@ -1,6 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomNav, Brand, InitiativeRow, PrimaryButton, RoleSwitcher, ScreenHeader, StatusChip } from '../components';
+import { BottomNav, Brand, InitiativeRow, PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { initiatives } from '../data';
 import { colors, fonts } from '../theme';
 
@@ -65,7 +65,7 @@ export function TeamScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
   );
 }
 
-export function ProfileScreen({ onNavigate, onCamera, role, onRoleChange }) {
+export function ProfileScreen({ onNavigate, onCamera, role, accountId, onAccountChange }) {
   return (
     <TabShell active="profile" kicker="Wersja demonstracyjna" onNavigate={onNavigate} role={role} title="Profil">
       <ScrollView contentContainerStyle={styles.content}>
@@ -73,15 +73,32 @@ export function ProfileScreen({ onNavigate, onCamera, role, onRoleChange }) {
           <View style={styles.profileAvatar}><Text style={styles.profileInitial}>{role === 'ngo' ? 'F' : 'O'}</Text></View>
           <Text style={styles.profileName}>{role === 'ngo' ? 'Fundacja Dobry Kadr' : 'Ola z Grzegórzek'}</Text>
           <Text style={styles.profileMeta}>{role === 'ngo' ? 'Organizacja społeczna · Kraków' : 'Gracz · Grzegórzki · 860 pkt'}</Text>
-          <RoleSwitcher role={role} onChange={onRoleChange} />
-          <Text style={styles.roleHint}>Przełącz rolę, aby zobaczyć frontend MVP bez logowania.</Text>
+          <View style={styles.accountBadge}>
+            <Ionicons color={colors.signal} name="person-circle" size={17} />
+            <Text style={styles.accountBadgeText}>{accountId === 'ngo-demo' ? 'Konto organizacji' : 'Konto mieszkańca'}</Text>
+          </View>
         </View>
 
         <View style={styles.menuCard}>
           <ProfileRow icon="camera" label="Aparat na żywo" onPress={onCamera} />
           <ProfileRow icon="time" label="Historia działań" onPress={() => Alert.alert('Historia działań', 'Tutaj pojawią się potwierdzone Misje, Rajdy i Zwiady.')} />
           <ProfileRow icon="ribbon" label="Odznaki i rezultaty" onPress={() => Alert.alert('Odznaki i rezultaty', 'W wersji demonstracyjnej masz odznakę „Pierwszy krok”.')} />
-          <ProfileRow icon="settings" label="Ustawienia demonstracyjne" last onPress={() => Alert.alert('Tryb demonstracyjny', 'Dane pozostają lokalnie i nie są wysyłane do backendu.')} />
+          <ProfileRow
+            icon="settings"
+            label="Ustawienia konta"
+            last
+            onPress={() =>
+              Alert.alert(
+                'Zmień konto',
+                'Typ użytkownika wynika z wybranego konta. Wybierz konto demonstracyjne:',
+                [
+                  { text: 'Ola z Grzegórzek', onPress: () => onAccountChange('player-demo') },
+                  { text: 'Fundacja Dobry Kadr', onPress: () => onAccountChange('ngo-demo') },
+                  { text: 'Anuluj', style: 'cancel' },
+                ],
+              )
+            }
+          />
         </View>
         <View style={styles.aboutCard}><Brand /><Text style={styles.aboutText}>Prototyp klikalnego frontendu. Dane i działania są przykładowe i nie są wysyłane do backendu.</Text></View>
       </ScrollView>
@@ -128,7 +145,8 @@ const styles = StyleSheet.create({
   profileInitial: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 29 },
   profileName: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 22, marginTop: 14 },
   profileMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, marginBottom: 20, marginTop: 5 },
-  roleHint: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, marginTop: 10, textAlign: 'center' },
+  accountBadge: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 999, flexDirection: 'row', gap: 7, marginTop: 2, paddingHorizontal: 12, paddingVertical: 8 },
+  accountBadgeText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11 },
   menuCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, marginTop: 16, paddingHorizontal: 15 },
   profileRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', minHeight: 66 },
   profileRowLast: { borderBottomWidth: 0 },
