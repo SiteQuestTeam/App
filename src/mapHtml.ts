@@ -57,7 +57,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
-    const INITIATIVE_METERS_PER_UNIT = ${compact ? 5.5 : 7.0};
+    const INITIATIVE_METERS_PER_UNIT = ${compact ? 8.0 : 10.0};
     let playerTransform = null;
     let playerTargetTransform = null;
     let playerHasFix = false;
@@ -541,62 +541,129 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       group.name = 'Initiative ' + item.id;
 
       const color = new THREE.Color(item.color);
-      const baseMat = new THREE.MeshStandardMaterial({
+      const brightColor = color.clone().offsetHSL(0, 0.05, 0.12);
+      const darkColor = color.clone().multiplyScalar(0.62);
+
+      const baseMat = new THREE.MeshPhysicalMaterial({
         color,
-        roughness: 0.42,
-        metalness: 0.04,
+        roughness: 0.34,
+        metalness: 0.03,
+        clearcoat: 0.34,
+        clearcoatRoughness: 0.28,
       });
-      const darkColor = color.clone().multiplyScalar(0.72);
+      const brightMat = new THREE.MeshPhysicalMaterial({
+        color: brightColor,
+        roughness: 0.26,
+        metalness: 0.04,
+        clearcoat: 0.48,
+        clearcoatRoughness: 0.22,
+      });
       const darkMat = new THREE.MeshStandardMaterial({
         color: darkColor,
-        roughness: 0.58,
-        metalness: 0.02,
+        roughness: 0.52,
+        metalness: 0.04,
       });
-      const whiteMat = new THREE.MeshStandardMaterial({
+      const whiteMat = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
-        roughness: 0.30,
+        roughness: 0.24,
         metalness: 0.01,
+        clearcoat: 0.45,
+        clearcoatRoughness: 0.20,
       });
       const glowMat = new THREE.MeshBasicMaterial({
-        color,
+        color: brightColor,
         transparent: true,
-        opacity: 0.28,
+        opacity: 0.34,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       });
 
-      // Ground plinth gives the marker actual contact with the 3D map.
+      // Large game-like pedestal: readable even from a wider map zoom.
       group.add(mesh(
-        new THREE.CylinderGeometry(0.42, 0.50, 0.14, 28),
+        new THREE.CylinderGeometry(0.66, 0.78, 0.18, 36),
         darkMat,
-        [0, 0.08, 0],
+        [0, 0.10, 0],
       ));
       group.add(mesh(
-        new THREE.CylinderGeometry(0.34, 0.40, 0.08, 28),
+        new THREE.CylinderGeometry(0.56, 0.64, 0.11, 36),
         baseMat,
-        [0, 0.18, 0],
+        [0, 0.24, 0],
+      ));
+      group.add(mesh(
+        new THREE.TorusGeometry(0.61, 0.045, 12, 44),
+        glowMat.clone(),
+        [0, 0.29, 0],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
       ));
 
-      // Slender pin stem.
+      // Tall tapered tower rather than a thin pin.
       group.add(mesh(
-        new THREE.CylinderGeometry(0.065, 0.095, 1.05, 18),
-        baseMat,
-        [0, 0.74, 0],
+        new THREE.CylinderGeometry(0.11, 0.19, 1.35, 22),
+        darkMat,
+        [0, 0.96, 0],
+      ));
+      group.add(mesh(
+        new THREE.CylinderGeometry(0.075, 0.12, 1.22, 22),
+        brightMat,
+        [0, 1.01, 0],
       ));
 
-      // White rim + colored orb makes the point readable from any map bearing.
-      group.add(mesh(
-        new THREE.SphereGeometry(0.37, 30, 24),
+      // Floating POI head.
+      const head = new THREE.Group();
+      head.position.set(0, 1.88, 0);
+      head.userData.initiativeHead = true;
+
+      // White outer housing.
+      head.add(mesh(
+        new THREE.CylinderGeometry(0.60, 0.60, 0.20, 40),
         whiteMat,
-        [0, 1.45, 0],
-      ));
-      group.add(mesh(
-        new THREE.SphereGeometry(0.305, 30, 24),
-        baseMat,
-        [0, 1.45, 0],
+        [0, 0, 0],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
       ));
 
-      // Floating letter/icon always faces the camera.
+      // Colored inset disc.
+      head.add(mesh(
+        new THREE.CylinderGeometry(0.49, 0.49, 0.23, 40),
+        baseMat,
+        [0, 0, 0.03],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
+      ));
+
+      // Inner luminous core gives the point a PokéStop-like game readability
+      // without copying a specific proprietary asset.
+      head.add(mesh(
+        new THREE.SphereGeometry(0.25, 28, 22),
+        brightMat,
+        [0, 0, 0.13],
+      ));
+
+      // Two orbiting rings around the floating head.
+      const orbitOuter = mesh(
+        new THREE.TorusGeometry(0.73, 0.035, 12, 48),
+        glowMat.clone(),
+        [0, 0, 0],
+        [1, 1, 1],
+        [Math.PI / 2, 0, 0],
+      );
+      orbitOuter.userData.initiativeHalo = true;
+      orbitOuter.userData.orbitSpeed = 0.55;
+      head.add(orbitOuter);
+
+      const orbitInner = mesh(
+        new THREE.TorusGeometry(0.62, 0.025, 10, 44),
+        glowMat.clone(),
+        [0, 0, 0],
+        [1, 1, 1],
+        [0, 0, 0],
+      );
+      orbitInner.userData.initiativeHaloSecondary = true;
+      orbitInner.userData.orbitSpeed = -0.42;
+      head.add(orbitInner);
+
+      // Large floating category badge always facing the camera.
       const labelMat = new THREE.SpriteMaterial({
         map: createInitiativeLabelTexture(item.marker),
         transparent: true,
@@ -604,41 +671,46 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         depthWrite: false,
       });
       const label = new THREE.Sprite(labelMat);
-      label.position.set(0, 1.45, 0.34);
-      label.scale.set(0.48, 0.48, 0.48);
-      label.renderOrder = 20;
-      group.add(label);
+      label.position.set(0, 0, 0.42);
+      label.scale.set(0.67, 0.67, 0.67);
+      label.renderOrder = 30;
+      head.add(label);
 
-      // Horizontal orbit ring around the orb.
-      const halo = mesh(
-        new THREE.TorusGeometry(0.46, 0.025, 10, 36),
-        glowMat.clone(),
-        [0, 1.45, 0],
-        [1, 1, 1],
-        [Math.PI / 2, 0, 0],
-      );
-      halo.userData.initiativeHalo = true;
-      group.add(halo);
+      group.add(head);
 
-      // Ground pulse makes locations easy to spot without reverting to a flat DOM marker.
+      // Wide ground energy ring.
       const groundPulse = mesh(
-        new THREE.TorusGeometry(0.58, 0.028, 10, 40),
+        new THREE.TorusGeometry(0.90, 0.045, 12, 52),
         glowMat.clone(),
-        [0, 0.12, 0],
+        [0, 0.13, 0],
         [1, 1, 1],
         [Math.PI / 2, 0, 0],
       );
       groundPulse.userData.initiativeGroundPulse = true;
       group.add(groundPulse);
 
-      // Vertical beacon connects the 3D location to the visual language of the Player beacon.
+      // Stronger vertical beacon, visible between buildings.
       const beam = mesh(
-        new THREE.CylinderGeometry(0.032, 0.075, 3.8, 16, 1, true),
+        new THREE.CylinderGeometry(0.055, 0.12, 5.2, 18, 1, true),
         glowMat.clone(),
-        [0, 3.42, 0],
+        [0, 4.40, 0],
       );
       beam.userData.initiativeBeam = true;
       group.add(beam);
+
+      const beamCore = mesh(
+        new THREE.CylinderGeometry(0.020, 0.030, 5.5, 14),
+        new THREE.MeshBasicMaterial({
+          color: brightColor,
+          transparent: true,
+          opacity: 0.52,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+        [0, 4.55, 0],
+      );
+      beamCore.userData.initiativeBeamCore = true;
+      group.add(beamCore);
 
       group.userData.itemId = item.id;
       group.userData.baseY = 0;
@@ -700,33 +772,39 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
         this.entries.forEach(({ item, model }) => {
           const selected = window.__selectedInitiativeId === item.id;
-          const bob = Math.sin(time * 2.15 + model.userData.phase) * 0.035;
 
-          model.children.forEach((part) => {
+          model.traverse((part) => {
+            if (part.userData.initiativeHead) {
+              const headScale = selected
+                ? 1.10 + Math.sin(time * 2.4 + model.userData.phase) * 0.035
+                : 1.0;
+              part.scale.set(headScale, headScale, headScale);
+              part.position.y = 1.88 + Math.sin(time * 1.8 + model.userData.phase) * 0.055;
+            }
             if (part.userData.initiativeHalo) {
-              part.rotation.z = time * 0.55 + model.userData.phase;
-              const pulse = 0.92 + Math.sin(time * 2.2 + model.userData.phase) * 0.08;
+              part.rotation.z = time * (part.userData.orbitSpeed || 0.55) + model.userData.phase;
+              const pulse = 0.95 + Math.sin(time * 2.2 + model.userData.phase) * 0.06;
               part.scale.set(pulse, pulse, pulse);
-              part.material.opacity = selected ? 0.52 : 0.30;
+              part.material.opacity = selected ? 0.66 : 0.38;
+            }
+            if (part.userData.initiativeHaloSecondary) {
+              part.rotation.x = time * (part.userData.orbitSpeed || -0.42) + model.userData.phase;
+              part.material.opacity = selected ? 0.58 : 0.30;
             }
             if (part.userData.initiativeGroundPulse) {
               const pulse = (Math.sin(time * 1.85 + model.userData.phase) + 1) * 0.5;
-              const scale = 0.86 + pulse * 0.42;
+              const scale = 0.86 + pulse * 0.46;
               part.scale.set(scale, scale, scale);
-              part.material.opacity = 0.10 + (1 - pulse) * (selected ? 0.46 : 0.26);
+              part.material.opacity = 0.12 + (1 - pulse) * (selected ? 0.52 : 0.30);
             }
             if (part.userData.initiativeBeam) {
-              part.material.opacity = selected ? 0.44 : 0.22;
+              part.material.opacity = selected ? 0.52 : 0.28;
+            }
+            if (part.userData.initiativeBeamCore) {
+              part.material.opacity = selected ? 0.72 : 0.46;
             }
           });
 
-          // Matrix is in Mercator coordinates; offset only the local marker meshes for animation.
-          model.children.forEach((part) => {
-            if (!part.isSprite && !part.userData.initiativeHalo && !part.userData.initiativeGroundPulse && !part.userData.initiativeBeam) {
-              part.position.y += bob - (part.userData.lastInitiativeBob || 0);
-              part.userData.lastInitiativeBob = bob;
-            }
-          });
         });
 
         this.renderer.resetState();
@@ -758,7 +836,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     function findInitiativeAtPoint(point) {
       let winner = null;
-      let winnerDistance = 64;
+      let winnerDistance = 92;
       markers.forEach((item) => {
         const projected = map.project(item.coordinates);
         const dx = projected.x - point.x;
