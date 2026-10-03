@@ -1,7 +1,7 @@
 export type Role = 'player' | 'ngo';
 export type AccountId = 'player-demo' | 'ngo-demo';
 export type ScreenName = 'map' | 'discover' | 'team' | 'profile' | 'detail' | 'creator' | 'camera' | 'landing';
-export type InitiativeType = 'Misja' | 'Rajd' | 'Szare miejsce' | 'Misja NGO';
+export type InitiativeType = 'Misja' | 'Rajd' | 'Zwiad' | 'Misja NGO';
 
 export interface Coordinates { latitude: number; longitude: number; }
 
