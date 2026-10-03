@@ -683,10 +683,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
           // A real flat model: one textured plane, no volume/depth.
           // Geometry uses local XY so after the MapLibre X rotation it stands upright.
-          const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(1, 1.50),
-            material,
-          );
+          const geometry = new THREE.PlaneGeometry(1, 1.50);
+          // Anchor the flat model at its bottom edge so its geographic point stays on the ground.
+          geometry.translate(0, 0.75, 0);
+          const plane = new THREE.Mesh(geometry, material);
           plane.matrixAutoUpdate = false;
           plane.frustumCulled = false;
           plane.renderOrder = 80 + index;
@@ -696,8 +696,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           plane.userData.selectedTexture = selectedTexture;
           plane.userData.mercator = mercator;
           plane.userData.meterScale = meterScale;
-          plane.userData.baseWidthMeters = 34;
-          plane.userData.baseHeightMeters = 51;
+          plane.userData.baseSizeMeters = 34;
 
           this.scene.add(plane);
           return { item, plane };
@@ -748,9 +747,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           const modelMatrix = new THREE.Matrix4()
             .makeTranslation(mercator.x, mercator.y, mercator.z)
             .scale(new THREE.Vector3(
-              meterScale * plane.userData.baseWidthMeters * selectedScale,
-              -meterScale * plane.userData.baseHeightMeters * selectedScale,
-              meterScale * selectedScale,
+              meterScale * plane.userData.baseSizeMeters * selectedScale,
+              -meterScale * plane.userData.baseSizeMeters * selectedScale,
+              meterScale * plane.userData.baseSizeMeters * selectedScale,
             ))
             .multiply(rotationX)
             .multiply(faceCamera);
