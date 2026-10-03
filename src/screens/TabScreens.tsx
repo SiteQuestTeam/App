@@ -18,7 +18,12 @@ export function DiscoverScreen({ onNavigate, onOpenInitiative, role }) {
   return (
     <TabShell active="discover" kicker="Działania w Krakowie" onNavigate={onNavigate} role={role} title={role === 'ngo' ? 'Inicjatywy do wsparcia' : 'Odkrywaj w pobliżu'}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.filterRow}><StatusChip tone="blue">Wszystkie</StatusChip><StatusChip tone="violet">Rajdy</StatusChip><StatusChip tone="grey">Szare miejsca</StatusChip></View>
+        <View style={styles.filterRow}>
+          <StatusChip icon="apps-outline" tone="blue">Wszystkie</StatusChip>
+          <StatusChip icon="flag-outline" tone="blue">Misje</StatusChip>
+          <StatusChip icon="people-outline" tone="violet">Rajdy</StatusChip>
+          <StatusChip icon="binoculars-outline" tone="grey">Zwiady</StatusChip>
+        </View>
         <Text style={styles.sectionTitle}>{initiatives.length} działań blisko Ciebie</Text>
         <View style={styles.list}>{initiatives.map((item) => <InitiativeRow item={item} key={item.id} onPress={() => onOpenInitiative(item)} />)}</View>
       </ScrollView>
