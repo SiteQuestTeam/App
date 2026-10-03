@@ -29,10 +29,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     .marker-dot:after{content:"";position:absolute;inset:-8px;border:2px solid currentColor;border-radius:50%;opacity:.2;animation:markerPulse 2.6s ease-out infinite}
     .marker-label{position:absolute;top:76px;white-space:nowrap;padding:6px 10px;border:1px solid #DDE3EA;border-radius:999px;background:rgba(255,255,255,.96);color:#101828;font-size:10px;font-weight:700;box-shadow:0 6px 18px rgba(16,24,40,.11)}
     @keyframes markerPulse{0%{transform:scale(.78);opacity:.24}70%,100%{transform:scale(1.3);opacity:0}}
-    .beaver{width:108px;height:132px;position:relative;filter:drop-shadow(0 13px 12px rgba(16,24,40,.24));transform-origin:50% 100%;pointer-events:none}
-    .beaver-svg{width:108px;height:132px;overflow:visible;animation:beaverIdle 2.9s ease-in-out infinite}
-    .beaver-label{position:absolute;left:34px;top:-9px;z-index:3;padding:4px 9px;border-radius:999px;background:#101828;color:#fff;font-size:9px;font-weight:900;letter-spacing:.08em;box-shadow:0 5px 12px rgba(16,24,40,.18)}
-    @keyframes beaverIdle{0%,100%{transform:translateY(0) rotate(-.4deg)}50%{transform:translateY(-3px) rotate(.4deg)}}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
     .maplibregl-ctrl-logo{display:none!important}
     ${compact ? '.marker-label{display:none}.maplibregl-ctrl-bottom-right{display:none}' : ''}
@@ -41,6 +37,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   <script>
     const markers = ${escapeJson(markers)};
     let playerPosition = [${center.longitude}, ${center.latitude}];
@@ -60,10 +57,163 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors · OpenFreeMap' }), 'bottom-right');
 
-    const playerElement = document.createElement('div');
-    playerElement.className = 'beaver';
-    playerElement.innerHTML = '<span class="beaver-label">TY</span><svg class="beaver-svg" viewBox="0 0 108 132" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="fur" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C98757"/><stop offset=".52" stop-color="#9A5F3C"/><stop offset="1" stop-color="#70432C"/></linearGradient><linearGradient id="dark" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8A5537"/><stop offset="1" stop-color="#563321"/></linearGradient><linearGradient id="cream" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFF0D6"/><stop offset="1" stop-color="#E9C89E"/></linearGradient><linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4B7DFF"/><stop offset=".55" stop-color="#2F6BFF"/><stop offset="1" stop-color="#1746B7"/></linearGradient><linearGradient id="violet" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#9A83FF"/><stop offset="1" stop-color="#7657FF"/></linearGradient><linearGradient id="tail" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#A56C46"/><stop offset="1" stop-color="#5C3825"/></linearGradient><filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="4" stdDeviation="3.2" flood-color="#101828" flood-opacity=".25"/></filter></defs><ellipse cx="55" cy="122" rx="28" ry="7" fill="#101828" opacity=".16"/><g filter="url(#shadow)"><path d="M18 78c-13 10-13 28-2 38 12-3 23-13 26-26-5-8-14-13-24-12Z" fill="url(#tail)" stroke="#FFF" stroke-width="2.2"/><path d="M18 83c8 7 13 15 15 25M12 93c8 5 13 11 16 18" fill="none" stroke="#D7A276" stroke-width="2" stroke-linecap="round" opacity=".55"/><rect x="73" y="61" width="19" height="34" rx="9.5" fill="url(#violet)" stroke="#FFF" stroke-width="3"/><ellipse cx="44" cy="113" rx="13" ry="8" fill="url(#dark)" stroke="#FFF" stroke-width="2.8"/><ellipse cx="69" cy="113" rx="13" ry="8" fill="url(#dark)" stroke="#FFF" stroke-width="2.8"/><ellipse cx="55" cy="82" rx="33" ry="37" fill="url(#fur)" stroke="#FFF" stroke-width="3.4"/><path d="M32 69c9 8 37 10 49-1l-3 25c-11 11-34 12-46 0Z" fill="url(#blue)" stroke="#FFF" stroke-width="2.8"/><circle cx="55" cy="84" r="5.8" fill="#FFF"/><path d="M52.3 84h5.4M55 81.3v5.4" stroke="#2F6BFF" stroke-width="2" stroke-linecap="round"/><ellipse cx="55" cy="93" rx="18" ry="20" fill="url(#cream)"/><path d="M27 77c-8 8-8 18-1 25" stroke="url(#dark)" stroke-width="13" stroke-linecap="round"/><path d="M83 77c8 8 8 18 1 25" stroke="url(#dark)" stroke-width="13" stroke-linecap="round"/><circle cx="31" cy="44" r="13" fill="url(#dark)" stroke="#FFF" stroke-width="3"/><circle cx="79" cy="44" r="13" fill="url(#dark)" stroke="#FFF" stroke-width="3"/><circle cx="31" cy="44" r="6" fill="#D99B70"/><circle cx="79" cy="44" r="6" fill="#D99B70"/><ellipse cx="55" cy="50" rx="33" ry="30" fill="url(#fur)" stroke="#FFF" stroke-width="3.5"/><path d="M32 35c7-11 17-15 29-14" fill="none" stroke="#EAB184" stroke-width="5" stroke-linecap="round" opacity=".55"/><ellipse cx="55" cy="60" rx="22" ry="15" fill="url(#cream)"/><ellipse cx="43" cy="48" rx="5.2" ry="6.4" fill="#101828"/><ellipse cx="68" cy="48" rx="5.2" ry="6.4" fill="#101828"/><circle cx="44.5" cy="46.4" r="1.7" fill="#FFF"/><circle cx="69.5" cy="46.4" r="1.7" fill="#FFF"/><path d="M50 55c0-4 10-4 10 0 0 4-3 6-5 6s-5-2-5-6Z" fill="#3F271C"/><path d="M55 61c-4 0-7 2-9 5M55 61c4 0 7 2 9 5" fill="none" stroke="#5B3827" stroke-width="2" stroke-linecap="round"/><rect x="47" y="65" width="8" height="11" rx="2" fill="#FFF" stroke="#D8DEE8"/><rect x="55" y="65" width="8" height="11" rx="2" fill="#FFF" stroke="#D8DEE8"/></g></svg>';
-    const playerMarker = new maplibregl.Marker({ element: playerElement, anchor: 'bottom' }).setLngLat(playerPosition).addTo(map);
+    const BEAVER_METERS_PER_UNIT = ${compact ? 3.4 : 4.2};
+    let playerTransform = null;
+
+    function updatePlayerTransform(lng, lat) {
+      const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
+      playerTransform = {
+        translateX: mercator.x,
+        translateY: mercator.y,
+        translateZ: mercator.z,
+        scale: mercator.meterInMercatorCoordinateUnits() * BEAVER_METERS_PER_UNIT,
+        rotateX: Math.PI / 2,
+        rotateY: 0,
+        rotateZ: Math.PI
+      };
+    }
+
+    updatePlayerTransform(playerPosition[0], playerPosition[1]);
+
+    function material(color, roughness = 0.72, metalness = 0.02) {
+      return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+    }
+
+    function mesh(geometry, mat, position, scale = [1, 1, 1], rotation = [0, 0, 0]) {
+      const part = new THREE.Mesh(geometry, mat);
+      part.position.set(position[0], position[1], position[2]);
+      part.scale.set(scale[0], scale[1], scale[2]);
+      part.rotation.set(rotation[0], rotation[1], rotation[2]);
+      return part;
+    }
+
+    function createBeaver3D() {
+      const beaver = new THREE.Group();
+      beaver.name = 'SiteQuest Beaver';
+
+      const fur = material(0x9a5f3c, 0.88);
+      const furLight = material(0xc98757, 0.80);
+      const furDark = material(0x563321, 0.92);
+      const cream = material(0xffefd4, 0.76);
+      const ink = material(0x101828, 0.40);
+      const white = material(0xffffff, 0.50);
+      const blue = material(0x2f6bff, 0.54);
+      const deep = material(0x1746b7, 0.58);
+      const violet = material(0x7657ff, 0.52);
+      const tailMat = material(0x75452c, 0.92);
+
+      // Flat paddle tail behind the body.
+      beaver.add(mesh(
+        new THREE.SphereGeometry(0.42, 18, 14),
+        tailMat,
+        [-0.48, 0.52, -0.28],
+        [0.62, 1.18, 0.20],
+        [0.05, 0.10, -0.48]
+      ));
+
+      // Feet.
+      beaver.add(mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [-0.23, 0.17, 0.04], [1.15, 0.55, 1.35]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.22, 16, 12), furDark, [0.23, 0.17, 0.04], [1.15, 0.55, 1.35]));
+
+      // Body and belly.
+      beaver.add(mesh(new THREE.SphereGeometry(0.52, 22, 18), fur, [0, 0.73, 0], [0.88, 1.18, 0.72]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.34, 20, 16), cream, [0, 0.76, 0.38], [0.78, 1.04, 0.22]));
+
+      // Brand vest as an actual 3D shell.
+      beaver.add(mesh(new THREE.SphereGeometry(0.54, 22, 18, 0, Math.PI * 2, 0.42, 1.45), blue, [0, 0.73, 0.03], [0.91, 1.08, 0.76]));
+      beaver.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.035, 20), white, [0, 0.82, 0.47], [1, 1, 1], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.10, 0.025, 0.025), blue, [0, 0.82, 0.493]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.025, 0.10, 0.025), blue, [0, 0.82, 0.493]));
+
+      // Arms.
+      beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [-0.44, 0.79, 0.08], [1, 1, 1], [0, 0, -0.36]));
+      beaver.add(mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.40, 12), furDark, [0.44, 0.79, 0.08], [1, 1, 1], [0, 0, 0.36]));
+
+      // Violet backpack.
+      beaver.add(mesh(new THREE.BoxGeometry(0.34, 0.52, 0.20), violet, [0.36, 0.83, -0.31], [1, 1, 1], [0, -0.18, -0.08]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.23, 0.07, 0.04), material(0xa997ff, 0.58), [0.36, 0.97, -0.425]));
+
+      // Head and ears.
+      beaver.add(mesh(new THREE.SphereGeometry(0.47, 24, 20), furLight, [0, 1.53, 0.02], [1.02, 0.91, 0.88]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.16, 18, 14), furDark, [-0.33, 1.75, -0.02]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.16, 18, 14), furDark, [0.33, 1.75, -0.02]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [-0.33, 1.75, 0.06]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.09, 16, 12), material(0xd99b70, 0.8), [0.33, 1.75, 0.06]));
+
+      // Face.
+      beaver.add(mesh(new THREE.SphereGeometry(0.30, 20, 16), cream, [0, 1.42, 0.37], [1.08, 0.70, 0.42]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.075, 16, 12), ink, [0, 1.52, 0.54], [1.15, 0.75, 0.65]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.061, 16, 12), ink, [-0.17, 1.62, 0.39]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.061, 16, 12), ink, [0.17, 1.62, 0.39]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.018, 10, 8), white, [-0.153, 1.642, 0.444]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.018, 10, 8), white, [0.187, 1.642, 0.444]));
+
+      // Beaver teeth.
+      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.17, 0.055), white, [-0.052, 1.31, 0.55], [1, 1, 1], [0, 0, 0.025]));
+      beaver.add(mesh(new THREE.BoxGeometry(0.095, 0.17, 0.055), white, [0.052, 1.31, 0.55], [1, 1, 1], [0, 0, -0.025]));
+
+      // SiteQuest neck accent.
+      beaver.add(mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 28), deep, [0, 1.18, 0.02], [1, 1, 0.78], [Math.PI / 2, 0, 0]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.055, 12, 10), violet, [0.29, 1.20, 0.34]));
+
+      beaver.rotation.y = -0.16;
+      return beaver;
+    }
+
+    const player3DLayer = {
+      id: 'sitequest-player-beaver-3d',
+      type: 'custom',
+      renderingMode: '3d',
+      onAdd(mapInstance, gl) {
+        this.map = mapInstance;
+        this.camera = new THREE.Camera();
+        this.scene = new THREE.Scene();
+        this.beaver = createBeaver3D();
+        this.scene.add(this.beaver);
+
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x40526a, 1.65));
+
+        const key = new THREE.DirectionalLight(0xffffff, 2.2);
+        key.position.set(-3, 7, 5);
+        this.scene.add(key);
+
+        const rim = new THREE.DirectionalLight(0xa997ff, 1.15);
+        rim.position.set(4, 3, -4);
+        this.scene.add(rim);
+
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: mapInstance.getCanvas(),
+          context: gl,
+          antialias: true
+        });
+        this.renderer.autoClear = false;
+      },
+      render(gl, matrix) {
+        if (!playerTransform) return;
+
+        const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), playerTransform.rotateX);
+        const rotationY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), playerTransform.rotateY);
+        const rotationZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), playerTransform.rotateZ);
+
+        const mapMatrix = new THREE.Matrix4().fromArray(matrix);
+        const modelMatrix = new THREE.Matrix4()
+          .makeTranslation(playerTransform.translateX, playerTransform.translateY, playerTransform.translateZ)
+          .scale(new THREE.Vector3(playerTransform.scale, -playerTransform.scale, playerTransform.scale))
+          .multiply(rotationX)
+          .multiply(rotationY)
+          .multiply(rotationZ);
+
+        this.camera.projectionMatrix = mapMatrix.multiply(modelMatrix);
+
+        const time = performance.now() * 0.001;
+        this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
+        this.beaver.rotation.y = -0.16 + Math.sin(time * 1.3) * 0.035;
+
+        this.renderer.resetState();
+        this.renderer.render(this.scene, this.camera);
+        this.map.triggerRepaint();
+      }
+    };
 
     markers.forEach((item) => {
       const element = document.createElement('div');
@@ -131,12 +281,14 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
+      if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
 
     function movePlayer(lng, lat, centerMap = true) {
       playerPosition = [lng, lat];
-      playerMarker.setLngLat(playerPosition);
+      updatePlayerTransform(lng, lat);
+      map.triggerRepaint();
       if (centerMap) map.easeTo({ center: playerPosition, duration: 900, pitch: ${compact ? 52 : 66}, zoom:16.3 });
     }
     window.movePlayer = movePlayer;
