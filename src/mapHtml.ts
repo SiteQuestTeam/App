@@ -740,6 +740,11 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     function activateInitiative(item) {
       if (!item) return;
       window.__selectedInitiativeId = item.id;
+      if (playerAnchored) {
+        playerAnchored = false;
+        send('anchor', { active: false });
+      }
+      map.stop();
       send('initiative', { id: item.id });
       map.easeTo({
         center: item.coordinates,
