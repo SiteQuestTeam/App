@@ -1,12 +1,12 @@
 # SiteQuest App
 
-Klikalny frontend aplikacji mobilnej SiteQuest zbudowany w Expo / React Native.
+Klikalny frontend aplikacji mobilnej SiteQuest zbudowany w Expo / React Native i TypeScript.
 
 ## Frontend MVP
 
-- landing page zgodny z identyfikacją „Urban Signal”,
+- start bezpośrednio na mapie 3D zgodnej z identyfikacją „Urban Signal”,
 - mapa MapLibre oparta na danych OpenStreetMap, z perspektywą 3D,
-- awatar gracza, promień interakcji, GPS i ręczne przemieszczanie po mapie,
+- kreskówkowy awatar bobra SiteQuest w stylu 3D, GPS i ręczne przemieszczanie po mapie,
 - przykładowe inicjatywy, szczegóły i dołączanie do ekipy,
 - trzyetapowy kreator inicjatywy,
 - widoki Odkrywaj, Ekipa, Profil i Panel NGO,
