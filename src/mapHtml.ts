@@ -105,6 +105,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
     }
 
+    // BEAVER_MODEL_START
     function material(color, roughness = 0.72, metalness = 0.02) {
       return new THREE.MeshStandardMaterial({ color, roughness, metalness });
     }
@@ -227,9 +228,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       );
       beaver.add(jacketBody);
 
-      // Open V around the neck exposing a small warm chest patch.
-      beaver.add(mesh(new THREE.SphereGeometry(0.23, 24, 18), cream, [0, 1.18, 0.425], [0.72, 0.58, 0.18]));
-
       // Raised puffer collar.
       beaver.add(mesh(new THREE.TorusGeometry(0.35, 0.075, 12, 36, Math.PI * 1.24), jacketBlue, [0, 1.19, 0.04], [1.0, 0.72, 1.0], [Math.PI / 2, 0, -0.38]));
       beaver.add(mesh(new THREE.TorusGeometry(0.35, 0.075, 12, 36, Math.PI * 1.24), jacketBlue, [0, 1.19, 0.04], [1.0, 0.72, 1.0], [Math.PI / 2, 0, Math.PI + 0.38]));
@@ -292,7 +290,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       // Rear face pocket, seam and logo panel.
       beaver.add(mesh(new THREE.SphereGeometry(0.245, 24, 20), backpackPurple, [0, 0.79, -0.665], [0.92, 0.66, 0.16]));
       beaver.add(mesh(new THREE.BoxGeometry(0.34, 0.020, 0.018), backpackTrim, [0, 0.86, -0.695]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.014, 18), white, [0, 0.86, -0.708], [1, 1, 1], [Math.PI / 2, 0, 0]));
 
       // Rear-visible padded shoulder straps hugging the jacket.
       beaver.add(mesh(new THREE.CylinderGeometry(0.050, 0.055, 0.58, 12), backpackPurple, [-0.285, 1.03, -0.19], [1.0, 1.0, 0.78], [0.10, 0, -0.20]));
@@ -322,17 +319,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       // Soft rear neck fur peeking between the head, jacket collar and backpack.
       beaver.add(mesh(new THREE.SphereGeometry(0.25, 24, 18), furWarm, [0, 1.34, -0.23], [1.10, 0.54, 0.38]));
 
-      // Small crown tufts to break the perfect sphere silhouette.
-      [-0.10, 0.00, 0.10].forEach((x, index) => {
-        beaver.add(mesh(
-          new THREE.ConeGeometry(0.055 - index * 0.006, 0.16 + index * 0.02, 10),
-          furWarm,
-          [x, 2.045 + index * 0.006, -0.01],
-          [1, 1, 1],
-          [0, 0, x * -1.8]
-        ));
-      });
-
       // Rounded ears with lighter inner pads.
       beaver.add(mesh(new THREE.SphereGeometry(0.16, 26, 20), furDark, [-0.385, 1.815, -0.020], [1.02, 1.02, 0.84]));
       beaver.add(mesh(new THREE.SphereGeometry(0.16, 26, 20), furDark, [0.385, 1.815, -0.020], [1.02, 1.02, 0.84]));
@@ -352,9 +338,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         beaver.add(mesh(new THREE.SphereGeometry(0.007, 10, 8), white, [x + 0.017, eyeY - 0.017, 0.552]));
       });
 
-      // Relaxed friendly brows with a slight upward outer angle.
-      beaver.add(mesh(new THREE.TorusGeometry(0.103, 0.019, 8, 22, Math.PI * 0.72), furDark, [-0.19, 1.797, 0.405], [1, 0.68, 1], [0, 0, 0.22]));
-      beaver.add(mesh(new THREE.TorusGeometry(0.103, 0.019, 8, 22, Math.PI * 0.72), furDark, [0.19, 1.797, 0.405], [1, 0.68, 1], [0, 0, 2.36]));
+      // Soft symmetrical brows made from ellipsoids: no torus clipping or hidden arc artifacts.
+      beaver.add(mesh(new THREE.SphereGeometry(0.095, 20, 14), furDark, [-0.19, 1.805, 0.455], [1.35, 0.24, 0.28], [0, 0, -0.10]));
+      beaver.add(mesh(new THREE.SphereGeometry(0.095, 20, 14), furDark, [0.19, 1.805, 0.455], [1.35, 0.24, 0.28], [0, 0, 0.10]));
 
       // Compact plush muzzle: symmetrical and slightly higher to avoid a heavy lower face.
       beaver.add(mesh(new THREE.SphereGeometry(0.218, 34, 28), creamLight, [-0.132, 1.495, 0.505], [1.03, 0.82, 0.66]));
@@ -375,11 +361,6 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       // Very subtle cheek warmth rather than strong pink spots.
       beaver.add(mesh(new THREE.SphereGeometry(0.050, 18, 14), cheekMat, [-0.300, 1.465, 0.475], [1.20, 0.42, 0.24]));
       beaver.add(mesh(new THREE.SphereGeometry(0.050, 18, 14), cheekMat, [0.300, 1.465, 0.475], [1.20, 0.42, 0.24]));
-
-      // Small SiteQuest-style white chest emblem on the jacket.
-      beaver.add(mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.016, 18), white, [0.205, 1.005, 0.477], [1, 1, 1], [Math.PI / 2, 0, 0]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.018, 0.070, 0.012), white, [0.205, 1.005, 0.488]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.018, 0.012), white, [0.205, 1.005, 0.488]));
 
       // Vertical player beacon kept from the previous implementation.
       const beacon = new THREE.Group();
@@ -419,6 +400,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.rotation.y = 0;
       return beaver;
     }
+    // BEAVER_MODEL_END
 
     const player3DLayer = {
       id: 'sitequest-player-beaver-3d',
