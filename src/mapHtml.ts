@@ -311,14 +311,18 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         this.beaver = createBeaver3D();
         this.scene.add(this.beaver);
 
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x40526a, 1.65));
+        this.scene.add(new THREE.HemisphereLight(0xfff7ea, 0x40526a, 1.80));
 
-        const key = new THREE.DirectionalLight(0xffffff, 2.2);
-        key.position.set(-3, 7, 5);
+        const key = new THREE.DirectionalLight(0xfff4df, 2.55);
+        key.position.set(-3.5, 7.5, 5.5);
         this.scene.add(key);
 
-        const rim = new THREE.DirectionalLight(0xa997ff, 1.15);
-        rim.position.set(4, 3, -4);
+        const fill = new THREE.DirectionalLight(0xcfe3ff, 1.05);
+        fill.position.set(4.5, 4.0, 4.5);
+        this.scene.add(fill);
+
+        const rim = new THREE.DirectionalLight(0xa997ff, 1.25);
+        rim.position.set(4.0, 3.5, -4.5);
         this.scene.add(rim);
 
         this.renderer = new THREE.WebGLRenderer({
@@ -326,6 +330,9 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           context: gl,
           antialias: true
         });
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.12;
         this.renderer.autoClear = false;
       },
       render(gl, args) {
