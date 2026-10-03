@@ -13,6 +13,7 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
   const [selectedId, setSelectedId] = useState('garden');
   const [mapError, setMapError] = useState(false);
   const [anchored, setAnchored] = useState(false);
+  const [locationIssue, setLocationIssue] = useState(null);
   const latestLocation = useRef(null);
   const acceptedLocation = useRef(null);
   const latestHeading = useRef(0);
@@ -65,9 +66,9 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
     const acceptMeaningfulMovement = (nextLocation) => {
       const nextAccuracy = Number(nextLocation.coords.accuracy ?? Infinity);
 
-      // Never place the avatar from a low-quality fix. Until a good fix arrives,
-      // the map stays freely pannable and the avatar remains hidden.
-      if (!Number.isFinite(nextAccuracy) || nextAccuracy > 35) return;
+      // Accept only reasonably precise fixes. Android can still report ~50 m
+      // uncertainty for a precise permission, so 35 m was unnecessarily strict.
+      if (!Number.isFinite(nextAccuracy) || nextAccuracy > 50) return;
 
       latestLocation.current = nextLocation;
       const previous = acceptedLocation.current;
@@ -111,29 +112,69 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
 
     const startLocationTracking = async () => {
       try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) {
+          if (active) setLocationIssue('services-off');
+          return;
+        }
+
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) return;
+        if (!permission.granted) {
+          if (active) setLocationIssue('permission-denied');
+          return;
+        }
+
+        const approximateOnly =
+          permission.android?.accuracy === 'coarse' ||
+          permission.ios?.accuracy === 'reduced';
+
+        if (approximateOnly) {
+          // BestForNavigation cannot override an OS-level approximate-location grant.
+          if (active) setLocationIssue('approximate');
+        } else if (active) {
+          setLocationIssue(null);
+        }
+
+        // Seed from a fresh cached fix so the avatar can appear immediately without
+        // issuing a separate foreground "locate me" request.
+        const lastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: 15000,
+          requiredAccuracy: 50,
+        });
+        if (active && lastKnown) {
+          acceptMeaningfulMovement(lastKnown);
+        }
 
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
             distanceInterval: 1,
             timeInterval: 1000,
+            mayShowUserSettingsDialog: true,
           },
           (nextLocation) => {
             if (!active) return;
             acceptMeaningfulMovement(nextLocation);
+            if ((nextLocation.coords.accuracy ?? Infinity) <= 50 && !approximateOnly) {
+              setLocationIssue(null);
+            }
+          },
+          () => {
+            if (active) setLocationIssue('signal');
           },
         );
 
-        headingSubscription = await Location.watchHeadingAsync((heading) => {
-          if (!active) return;
-          const value = heading.trueHeading >= 0 ? heading.trueHeading : heading.magHeading;
-          pushHeadingToMap(value);
-        });
+        headingSubscription = await Location.watchHeadingAsync(
+          (heading) => {
+            if (!active || heading.accuracy === 0) return;
+            const value = heading.trueHeading >= 0 ? heading.trueHeading : heading.magHeading;
+            pushHeadingToMap(value);
+          },
+          () => {},
+        );
       } catch {
-        // Keep the last known avatar position when GPS is temporarily unavailable.
-        // The map remains usable and the avatar is never reset to a fallback coordinate.
+        if (active) setLocationIssue('signal');
+        // Keep the last accepted avatar position when GPS is temporarily unavailable.
       }
     };
 
@@ -235,9 +276,26 @@ export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role, onRole
         <Pressable
           accessibilityLabel="Wycentruj mapę na swojej pozycji"
           onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
-          style={[styles.roundAction, anchored && styles.roundActionActive]}
+          accessibilityHint={
+            locationIssue === 'approximate'
+              ? 'Włącz dokładną lokalizację w ustawieniach systemu.'
+              : locationIssue
+                ? 'Brak poprawnego sygnału lokalizacji.'
+                : anchored
+                  ? 'Śledzenie pozycji jest aktywne.'
+                  : 'Włącza śledzenie pozycji na mapie.'
+          }
+          style={[
+            styles.roundAction,
+            anchored && styles.roundActionActive,
+            locationIssue && styles.roundActionWarning,
+          ]}
         >
-          <Ionicons color={anchored ? colors.surface : colors.signal} name="locate" size={22} />
+          <Ionicons
+            color={anchored && !locationIssue ? colors.surface : locationIssue ? '#B54708' : colors.signal}
+            name={locationIssue ? 'warning-outline' : 'locate'}
+            size={22}
+          />
         </Pressable>
       </View>
 
@@ -293,6 +351,7 @@ const styles = StyleSheet.create({
   mapActions: { gap: 9, position: 'absolute', right: 14, top: 130, zIndex: 5 },
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 23, borderWidth: 1, height: 46, justifyContent: 'center', width: 46, ...shadow },
   roundActionActive: { backgroundColor: colors.signal, borderColor: colors.signal },
+  roundActionWarning: { backgroundColor: '#FFFAEB', borderColor: '#FEDF89' },
   quickCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 88, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, zIndex: 5, ...shadow },
   quickMarker: { alignItems: 'center', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
   quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 17 },
