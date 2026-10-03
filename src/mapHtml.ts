@@ -58,11 +58,23 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors · OpenFreeMap' }), 'bottom-right');
 
-    const BEAVER_METERS_PER_UNIT = ${compact ? 3.4 : 4.2};
+    const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
+    const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
 
+    function getPlayerElevation(lng, lat) {
+      try {
+        const point = map.project([lng, lat]);
+        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
+        const buildingHeight = Math.max(0, ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)));
+        return buildingHeight + BEAVER_GROUND_CLEARANCE_METERS;
+      } catch {
+        return 0;
+      }
+    }
+
     function updatePlayerTransform(lng, lat) {
-      const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], 0);
+      const mercator = maplibregl.MercatorCoordinate.fromLngLat([lng, lat], getPlayerElevation(lng, lat));
       playerTransform = {
         translateX: mercator.x,
         translateY: mercator.y,
@@ -70,7 +82,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         scale: mercator.meterInMercatorCoordinateUnits() * BEAVER_METERS_PER_UNIT,
         rotateX: Math.PI / 2,
         rotateY: 0,
-        rotateZ: Math.PI
+        rotateZ: 0
       };
     }
 
@@ -213,6 +225,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
         this.beaver.rotation.y = -0.16 + Math.sin(time * 1.3) * 0.035;
 
+        // Keep the player avatar visible even when its coordinate falls inside a 3D building.
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         this.renderer.resetState();
         this.renderer.render(this.scene, this.camera);
         this.map.triggerRepaint();
@@ -285,6 +299,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           }
         }, firstSymbol?.id);
       }
+      updatePlayerTransform(playerPosition[0], playerPosition[1]);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       send('ready');
     });
