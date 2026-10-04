@@ -141,8 +141,7 @@ function VotingInitiativeCard({
     resetCard();
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => {
         const horizontal = Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
         const pullDown = !expanded && gesture.dy > 14 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
@@ -174,8 +173,7 @@ function VotingInitiativeCard({
         resetCard();
       },
       onPanResponderTerminate: resetCard,
-    }),
-  ).current;
+    });
 
   const rotate = position.x.interpolate({
     inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
