@@ -324,30 +324,42 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       <Animated.View
         pointerEvents={createMenuOpen ? 'auto' : 'none'}
         style={[
-          styles.fluidMenu,
+          styles.actionMenu,
           {
             opacity: createMenuProgress,
             transform: [
-              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
-              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
+              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
             ],
           },
         ]}
       >
-        <View pointerEvents="none" style={styles.fluidCore}>
-          <View style={styles.fluidCoreHalo} />
-          <View style={styles.fluidNeck} />
-        </View>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.actionBridge,
+            {
+              opacity: createMenuProgress,
+              transform: [
+                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.actionBridgeCore} />
+          <View style={styles.actionBridgeLeft} />
+          <View style={styles.actionBridgeRight} />
+        </Animated.View>
 
         <Animated.View
           style={[
-            styles.fluidBranchWrap,
-            styles.fluidBranchLeftWrap,
+            styles.actionItemWrap,
+            styles.actionItemLeftWrap,
             {
               transform: [
-                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [58, 0] }) },
+                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [88, 0] }) },
                 { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-                { rotate: '-4deg' },
+                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
               ],
             },
           ]}
@@ -360,31 +372,34 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             onPressIn={() => beginHold('incident')}
             onPressOut={() => finishHold('incident')}
             onTouchCancel={() => cancelHold('incident')}
-            style={({ pressed }) => [styles.fluidBranch, styles.fluidBranchLeft, pressed && styles.fluidBranchPressed]}
+            style={({ pressed }) => [styles.actionItem, styles.actionItemLeft, pressed && styles.actionItemPressed]}
           >
-            <Animated.View
-              style={[
-                styles.fluidFill,
-                styles.fluidFillLeft,
-                { width: incidentFillWidth },
-              ]}
-            />
-            <View style={styles.fluidLabelRow}>
-              <Ionicons color={colors.surface} name="construct-outline" size={16} />
-              <Text numberOfLines={1} style={styles.fluidLabel}>Zgłoś usterkę</Text>
+            <Animated.View style={[styles.actionFill, styles.actionFillLeft, { width: incidentFillWidth }]} />
+            <View style={[styles.actionIcon, heldAction === 'incident' && styles.actionIconHeld]}>
+              <Ionicons
+                color={heldAction === 'incident' ? colors.surface : colors.signal}
+                name="construct-outline"
+                size={19}
+              />
             </View>
+            <Text
+              numberOfLines={2}
+              style={[styles.actionLabel, heldAction === 'incident' && styles.actionLabelHeld]}
+            >
+              Zgłoś usterkę
+            </Text>
           </Pressable>
         </Animated.View>
 
         <Animated.View
           style={[
-            styles.fluidBranchWrap,
-            styles.fluidBranchRightWrap,
+            styles.actionItemWrap,
+            styles.actionItemRightWrap,
             {
               transform: [
-                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [-58, 0] }) },
+                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [-88, 0] }) },
                 { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-                { rotate: '4deg' },
+                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
               ],
             },
           ]}
@@ -397,37 +412,23 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             onPressIn={() => beginHold('initiative')}
             onPressOut={() => finishHold('initiative')}
             onTouchCancel={() => cancelHold('initiative')}
-            style={({ pressed }) => [styles.fluidBranch, styles.fluidBranchRight, pressed && styles.fluidBranchPressed]}
+            style={({ pressed }) => [styles.actionItem, styles.actionItemRight, pressed && styles.actionItemPressed]}
           >
-            <Animated.View
-              style={[
-                styles.fluidFill,
-                styles.fluidFillRight,
-                { width: initiativeFillWidth },
-              ]}
-            />
-            <View style={styles.fluidLabelRow}>
-              <Text numberOfLines={1} style={styles.fluidLabel}>Zgłoś inicjatywę</Text>
-              <Ionicons color={colors.surface} name="sparkles-outline" size={16} />
+            <Animated.View style={[styles.actionFill, styles.actionFillRight, { width: initiativeFillWidth }]} />
+            <View style={[styles.actionIcon, heldAction === 'initiative' && styles.actionIconHeld]}>
+              <Ionicons
+                color={heldAction === 'initiative' ? colors.surface : colors.signal}
+                name="bulb-outline"
+                size={19}
+              />
             </View>
+            <Text
+              numberOfLines={2}
+              style={[styles.actionLabel, heldAction === 'initiative' && styles.actionLabelHeld]}
+            >
+              Zgłoś inicjatywę
+            </Text>
           </Pressable>
-        </Animated.View>
-
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.fluidHint,
-            {
-              opacity: heldAction ? 1 : createMenuProgress,
-              transform: [
-                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.fluidHintText}>
-            {heldAction ? 'Trzymaj… i puść po wypełnieniu' : 'Przytrzymaj wybór'}
-          </Text>
         </Animated.View>
       </Animated.View>
 
@@ -474,126 +475,142 @@ const styles = StyleSheet.create({
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
   roundActionActive: { backgroundColor: colors.signal },
 
-  fluidMenu: {
-    bottom: 116,
-    height: 138,
-    left: 8,
+  actionMenu: {
+    bottom: 101,
+    height: 98,
+    left: 10,
     position: 'absolute',
-    right: 8,
+    right: 10,
     zIndex: 19,
   },
-  fluidCore: {
-    alignItems: 'center',
-    bottom: -8,
-    height: 96,
+  actionBridge: {
+    bottom: -4,
+    height: 58,
     left: '50%',
-    marginLeft: -76,
+    marginLeft: -82,
     position: 'absolute',
-    width: 152,
+    width: 164,
   },
-  fluidCoreHalo: {
-    backgroundColor: colors.ink,
-    borderTopLeftRadius: 82,
-    borderTopRightRadius: 82,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    bottom: 0,
+  actionBridgeCore: {
+    backgroundColor: colors.surface,
+    borderRadius: 42,
+    bottom: -18,
     height: 76,
+    left: '50%',
+    marginLeft: -38,
     position: 'absolute',
-    width: 132,
+    width: 76,
     ...shadow,
   },
-  fluidNeck: {
-    backgroundColor: colors.ink,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    bottom: -18,
-    height: 52,
+  actionBridgeLeft: {
+    backgroundColor: colors.surface,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 10,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    bottom: 12,
+    height: 34,
+    left: 7,
     position: 'absolute',
-    width: 66,
+    transform: [{ rotate: '-16deg' }],
+    width: 78,
   },
-  fluidBranchWrap: {
-    height: 78,
+  actionBridgeRight: {
+    backgroundColor: colors.surface,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    bottom: 12,
+    height: 34,
     position: 'absolute',
-    top: 10,
-    width: '47%',
+    right: 7,
+    transform: [{ rotate: '16deg' }],
+    width: 78,
   },
-  fluidBranchLeftWrap: { left: 4 },
-  fluidBranchRightWrap: { right: 4 },
-  fluidBranch: {
+  actionItemWrap: {
+    height: 64,
+    position: 'absolute',
+    top: 2,
+    width: '44%',
+    zIndex: 2,
+  },
+  actionItemLeftWrap: { left: 4 },
+  actionItemRightWrap: { right: 4 },
+  actionItem: {
     alignItems: 'center',
-    backgroundColor: colors.ink,
-    height: 70,
-    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(221,227,234,.9)',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 9,
+    height: 62,
     overflow: 'hidden',
-    paddingHorizontal: 18,
+    paddingHorizontal: 13,
     width: '100%',
     ...shadow,
   },
-  fluidBranchLeft: {
-    borderTopLeftRadius: 42,
-    borderTopRightRadius: 54,
-    borderBottomLeftRadius: 42,
-    borderBottomRightRadius: 16,
+  actionItemLeft: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 14,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
-  fluidBranchRight: {
-    borderTopLeftRadius: 54,
-    borderTopRightRadius: 42,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 42,
+  actionItemRight: {
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 30,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
-  fluidBranchPressed: {
-    opacity: 0.98,
+  actionItemPressed: {
+    transform: [{ scale: 0.985 }],
   },
-  fluidFill: {
+  actionFill: {
     backgroundColor: colors.signal,
     bottom: 0,
     position: 'absolute',
     top: 0,
   },
-  fluidFillLeft: {
-    borderTopLeftRadius: 42,
-    borderTopRightRadius: 54,
-    borderBottomLeftRadius: 42,
-    borderBottomRightRadius: 16,
+  actionFillLeft: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 14,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     right: 0,
   },
-  fluidFillRight: {
-    borderTopLeftRadius: 54,
-    borderTopRightRadius: 42,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 42,
+  actionFillRight: {
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 30,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     left: 0,
   },
-  fluidLabelRow: {
+  actionIcon: {
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 7,
+    backgroundColor: colors.blueSoft,
+    borderRadius: 18,
+    height: 36,
     justifyContent: 'center',
+    width: 36,
     zIndex: 2,
   },
-  fluidLabel: {
-    color: colors.surface,
+  actionIconHeld: {
+    backgroundColor: 'rgba(255,255,255,.18)',
+  },
+  actionLabel: {
+    color: colors.ink,
+    flex: 1,
     fontFamily: fonts.bodyBold,
     fontSize: 11,
-    letterSpacing: -0.18,
+    lineHeight: 14,
+    zIndex: 2,
   },
-  fluidHint: {
-    alignItems: 'center',
-    bottom: 1,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-  },
-  fluidHintText: {
-    color: colors.muted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 9,
-    letterSpacing: 0.1,
+  actionLabelHeld: {
+    color: colors.surface,
   },
 
   fab: { alignItems: 'center', backgroundColor: colors.signal, borderColor: colors.surface, borderRadius: 31, borderWidth: 5, bottom: 62, height: 62, justifyContent: 'center', left: '50%', marginLeft: -31, position: 'absolute', width: 62, zIndex: 20, ...shadow },
-  fabOpen: { backgroundColor: colors.ink, borderColor: colors.ink },
+  fabOpen: { backgroundColor: colors.signal, borderColor: colors.surface },
   fabPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
   locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
   locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
