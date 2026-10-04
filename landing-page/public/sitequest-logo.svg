@@ -1,0 +1,22 @@
+<svg width="206" height="170" viewBox="0 0 206 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>SiteQuest logo</title>
+  <g>
+    <circle cx="107" cy="54" r="12" fill="#7657FF"/>
+    <circle cx="68" cy="76" r="10.5" fill="#376BFF"/>
+    <circle cx="146" cy="76" r="10.5" fill="#376BFF"/>
+    <circle cx="70" cy="115" r="19" fill="#376BFF"/>
+    <circle cx="144" cy="115" r="19" fill="#376BFF"/>
+    <rect x="83" y="79" width="48" height="51" rx="21" fill="#7657FF"/>
+    <path d="M107 119.5L117.5 130L107 140.5L96.5 130L107 119.5Z" fill="#101828"/>
+  </g>
+  <text
+    x="107"
+    y="164"
+    fill="#101828"
+    font-family="Inter, Arial, sans-serif"
+    font-size="24"
+    font-weight="700"
+    letter-spacing="-1"
+    text-anchor="middle"
+  >SiteQuest</text>
+</svg>
