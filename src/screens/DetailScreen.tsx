@@ -266,10 +266,6 @@ function VotingInitiativeCard({
                 </Text>
               </View>
 
-              <View style={styles.openDetailsRow}>
-                <Text style={styles.openDetailsText}>Zobacz wszystkie informacje</Text>
-                <Ionicons color={colors.signal} name="chevron-forward" size={18} />
-              </View>
             </View>
           </Pressable>
         </Animated.View>
@@ -538,18 +534,23 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
 
-  tinderStage: { flex: 1, paddingHorizontal: 14, paddingTop: 6 },
+  tinderStage: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
   tinderCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 24,
     borderWidth: 1,
-    flex: 1,
     overflow: 'hidden',
+    width: '100%',
     ...shadow,
   },
   cardScroll: { flexGrow: 1 },
-  cardTapArea: { flex: 1 },
+  cardTapArea: { width: '100%' },
   tinderHero: { height: 112, overflow: 'hidden', position: 'relative' },
   tinderPhoto: { height: '100%', width: '100%' },
   heroShade: {
@@ -635,17 +636,6 @@ const styles = StyleSheet.create({
   },
   solutionLabel: { color: colors.resolved, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7 },
   solutionPreview: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17, marginTop: 5 },
-  openDetailsRow: {
-    alignItems: 'center',
-    borderTopColor: colors.border,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    paddingTop: 9,
-  },
-  openDetailsText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
-
   voteSummary: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, marginTop: 17 },
   voteSummaryLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 },
   voteSummaryCount: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 24, marginTop: 1 },
