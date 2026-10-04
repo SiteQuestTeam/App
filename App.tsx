@@ -40,17 +40,27 @@ export default function App() {
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
 
-    const startLocationTracking = async () => {
+    const restoreCachedLocation = async () => {
       try {
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
-        if (!servicesEnabled) {
-          if (active) {
-            setPlayerLocation(null);
-            setLocationIssue('Wyłączony GPS');
-          }
-          return;
+        const cached = await Location.getLastKnownPositionAsync({
+          maxAge: 15 * 60_000,
+          requiredAccuracy: 250,
+        });
+
+        if (active && cached) {
+          setPlayerLocation((current) => current || cached);
         }
 
+        return cached;
+      } catch {
+        return null;
+      }
+    };
+
+    const startLocationTracking = async () => {
+      const cached = await restoreCachedLocation();
+
+      try {
         const permission = await Location.getForegroundPermissionsAsync();
         if (!permission.granted) {
           if (active) {
@@ -60,14 +70,16 @@ export default function App() {
           return;
         }
 
-        const cached = await Location.getLastKnownPositionAsync({
-          maxAge: 60_000,
-          requiredAccuracy: 100,
-        });
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) {
+          if (active) {
+            setLocationIssue(cached ? 'GPS niedostępny — ostatnia znana lokalizacja' : 'Wyłączony GPS');
+          }
+          return;
+        }
 
         if (active && cached) {
-          setPlayerLocation(cached);
-          setLocationIssue(null);
+          setLocationIssue('Łączenie z GPS — ostatnia znana lokalizacja');
         }
 
         subscription = await Location.watchPositionAsync(
@@ -84,7 +96,11 @@ export default function App() {
         );
       } catch {
         if (active) {
-          setLocationIssue('Brak sygnału GPS');
+          setLocationIssue(
+            cached || playerLocation
+              ? 'Brak sygnału GPS — ostatnia znana lokalizacja'
+              : 'Brak sygnału GPS',
+          );
         }
       }
     };
