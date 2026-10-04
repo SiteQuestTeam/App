@@ -1,96 +1,170 @@
-import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
-import { categories, initiatives } from '../data';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
-import { createMapHtml } from '../mapHtml';
+import { mockAiQuestions } from '../data';
 import { colors, fonts } from '../theme';
+import type { Fixer, Initiative } from '../types';
 
-export function CreatorScreen({ onClose, onPublish, role }) {
-  const [step, setStep] = useState(1);
+export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
+  const [step, setStep] = useState(photoUri ? 2 : 1);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [answer, setAnswer] = useState('');
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [title, setTitle] = useState('Więcej zieleni i miejsca do odpoczynku');
   const [category, setCategory] = useState('Zieleń');
-  const [title, setTitle] = useState(role === 'ngo' ? 'Warsztaty miejskiego ogrodnictwa' : 'Ogród sąsiedzki na pustej działce');
-  const [description, setDescription] = useState('Posadzimy zioła i kwiaty, zbudujemy dwie ławki i przygotujemy miejsce spotkań dla sąsiadów.');
-  const mapHtml = useMemo(() => createMapHtml([], { compact: true }), []);
+  const [problem, setProblem] = useState('W tym miejscu brakuje zieleni i wygodnego miejsca, gdzie można na chwilę usiąść.');
+  const [proposedAction, setProposedAction] = useState('Dodać niewielką strefę zieleni z ławką i roślinami odpornymi na warunki miejskie.');
+  const [whyImportant, setWhyImportant] = useState('Poprawi komfort mieszkańców i jakość wspólnej przestrzeni.');
+  const [people, setPeople] = useState('2–3 osoby do przygotowania miejsca');
+  const [equipment, setEquipment] = useState('ławka, donice, rośliny, podstawowe narzędzia');
+  const [transport, setTransport] = useState('transport ławki i roślin');
+  const [fixer, setFixer] = useState<Fixer>('Miasto');
+  const [place, setPlace] = useState('Okolice TAURON Areny, Kraków');
 
-  const goBack = () => step === 1 ? onClose() : setStep(step - 1);
+  useEffect(() => {
+    if (photoUri) setStep(2);
+  }, [photoUri]);
+
+  const aiDone = questionIndex >= mockAiQuestions.length;
+  const briefReady = step === 3;
+  const progress = step === 1 ? 'Zdjęcie' : step === 2 ? 'AI' : 'Brief';
+
+  const answerQuestion = () => {
+    if (!answer.trim()) return;
+    setAnswers((current) => [...current, answer.trim()]);
+    setAnswer('');
+    if (questionIndex + 1 >= mockAiQuestions.length) {
+      setQuestionIndex(mockAiQuestions.length);
+      setStep(3);
+    } else {
+      setQuestionIndex((current) => current + 1);
+    }
+  };
+
+  const publish = () => {
+    const initiative: Initiative = {
+      id: `initiative-${Date.now()}`,
+      initiator: 'Gracz Demo',
+      latitude: 50.06772,
+      longitude: 19.99215,
+      votes: 0,
+      threshold: 10,
+      status: 'collecting',
+      shortTitle: title,
+      marker: '0',
+      color: colors.signal,
+      distance: '40 m',
+      brief: {
+        title: title.slice(0, 60),
+        category,
+        problem,
+        proposedAction,
+        whyImportant,
+        resources: { people, equipment, transport },
+        fixer,
+        place,
+        photoUri,
+      },
+    };
+    onPublish(initiative);
+  };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
-      <ScreenHeader kicker={`Krok ${step} z 3`} onBack={goBack} title={step === 1 ? 'Wybierz kategorię' : step === 2 ? 'Gdzie i kiedy?' : 'Zbierz ekipę'} />
-      <View style={styles.progressRow}>{[1, 2, 3].map((number) => <View key={number} style={[styles.progressPart, number <= step && styles.progressPartActive]} />)}</View>
+      <ScreenHeader kicker={progress} onBack={step === 1 ? onClose : () => setStep(Math.max(1, step - 1))} title="Nowa Inicjatywa" />
+      <View style={styles.progressRow}>{[1, 2, 3].map((n) => <View key={n} style={[styles.progressPart, n <= step && styles.progressPartActive]} />)}</View>
 
       {step === 1 && (
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Co chcesz zrobić?</Text>
-          <Text style={styles.helper}>Wybierz typ działania, który najlepiej opisuje Twój pomysł.</Text>
-          <View style={styles.search}><Ionicons color={colors.muted} name="search" size={20} /><Text style={styles.searchText}>Szukaj kategorii lub pomysłu</Text></View>
-          <View style={styles.categoryGrid}>
-            {categories.map(([label, icon], index) => {
-              const selected = category === label;
-              return (
-                <Pressable key={label} onPress={() => setCategory(label)} style={[styles.category, selected && styles.categoryActive]}>
-                  <View style={[styles.categoryIcon, { backgroundColor: index % 3 === 1 ? colors.violetSoft : index % 3 === 2 ? colors.mintSoft : colors.blueSoft }]}>
-                    <Ionicons color={selected ? colors.signal : colors.ink} name={icon} size={21} />
-                  </View>
-                  <Text style={[styles.categoryText, selected && styles.categoryTextActive]}>{label}</Text>
-                  {selected && <Ionicons color={colors.signal} name="checkmark-circle" size={18} />}
-                </Pressable>
-              );
-            })}
+          <View style={styles.heroIcon}><Ionicons color={colors.surface} name="camera" size={28} /></View>
+          <Text style={styles.title}>Najpierw Zdjęcie na żywo</Text>
+          <Text style={styles.helper}>Zdjęcie musi być wykonane aparatem w aplikacji. W MVP nie używamy galerii.</Text>
+          <View style={styles.ruleCard}>
+            <Ionicons color={colors.signal} name="location" size={22} />
+            <View style={styles.ruleCopy}><Text style={styles.ruleTitle}>Na miejscu</Text><Text style={styles.ruleBody}>Zgłoszenie jest przeznaczone do użycia w pobliżu inicjatywy — docelowo serwer sprawdza promień około 50 m.</Text></View>
           </View>
-          <View style={styles.tip}><Ionicons color={colors.violet} name="sparkles" size={20} /><Text style={styles.tipText}>Popularne w pobliżu: ogrody społeczne i spacery sąsiedzkie</Text></View>
-          <PrimaryButton onPress={() => setStep(2)} style={styles.next}>Dalej</PrimaryButton>
+          <PrimaryButton icon="camera" onPress={onCamera} style={styles.next}>Zrób Zdjęcie na żywo</PrimaryButton>
         </ScrollView>
       )}
 
       {step === 2 && (
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Wskaż miejsce na mapie</Text>
-          <Text style={styles.helper}>Dotknij mapy, aby przesunąć awatar i wybrać punkt działania.</Text>
-          <View style={styles.miniMap}>
-            <WebView originWhitelist={['*']} source={{ html: mapHtml }} style={styles.webMap} />
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} /> : null}
+          <StatusChip tone="violet" icon="sparkles">Mock AI</StatusChip>
+          <Text style={styles.title}>Doprecyzuj pomysł</Text>
+          <Text style={styles.helper}>AI może zadać maksymalnie 3 pytania. Na tym etapie odpowiedzi są lokalnym mockiem.</Text>
+
+          <View style={styles.chat}>
+            <View style={styles.aiBubble}>
+              <Text style={styles.aiLabel}>BOGDAN · AI</Text>
+              <Text style={styles.aiText}>{mockAiQuestions[Math.min(questionIndex, mockAiQuestions.length - 1)]}</Text>
+            </View>
+            {answers.map((item, index) => (
+              <View key={`${item}-${index}`} style={styles.userBubble}><Text style={styles.userText}>{item}</Text></View>
+            ))}
           </View>
-          <View style={styles.addressCard}>
-            <Ionicons color={colors.signal} name="location" size={21} />
-            <View><Text style={styles.addressTitle}>Skwer przy ul. Łąkowej 18</Text><Text style={styles.addressMeta}>Grzegórzki · Kraków</Text></View>
-          </View>
-          <Text style={styles.label}>Termin</Text>
-          <View style={styles.dateRow}>
-            <View style={styles.dateBox}><Text style={styles.dateSmall}>SOBOTA</Text><Text style={styles.dateLarge}>10 PAŹ</Text></View>
-            <View style={styles.dateBox}><Text style={styles.dateSmall}>START</Text><Text style={styles.dateLarge}>11:00</Text></View>
-          </View>
-          <PrimaryButton onPress={() => setStep(3)} style={styles.next}>Dalej</PrimaryButton>
+
+          {!aiDone && (
+            <>
+              <TextInput
+                multiline
+                onChangeText={setAnswer}
+                placeholder="Napisz krótką odpowiedź…"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, styles.answerInput]}
+                value={answer}
+              />
+              <PrimaryButton disabled={!answer.trim()} icon="arrow-forward" onPress={answerQuestion} style={styles.next}>
+                {questionIndex === mockAiQuestions.length - 1 ? 'Utwórz Brief' : 'Dalej'}
+              </PrimaryButton>
+            </>
+          )}
         </ScrollView>
       )}
 
-      {step === 3 && (
+      {briefReady && (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>Opowiedz o inicjatywie</Text>
-          <Text style={styles.helper}>Krótko: co robicie i dlaczego warto dołączyć?</Text>
-          <Text style={styles.label}>Nazwa</Text>
-          <TextInput maxLength={80} onChangeText={setTitle} style={styles.input} value={title} />
-          <Text style={styles.label}>Opis</Text>
-          <TextInput maxLength={240} multiline onChangeText={setDescription} style={[styles.input, styles.textArea]} textAlignVertical="top" value={description} />
-          <Text style={styles.counter}>{description.length} / 240</Text>
-          <Text style={styles.label}>Kogo lub czego potrzebujesz?</Text>
-          <View style={styles.tags}><StatusChip tone="green">+ 8 osób</StatusChip><StatusChip tone="warning">+ Narzędzia</StatusChip><StatusChip tone="green">+ Rośliny</StatusChip></View>
-          <View style={styles.summary}>
-            <View style={styles.summaryMarker}><Ionicons color={colors.surface} name="leaf" size={22} /></View>
-            <View style={styles.summaryCopy}>
-              <Text style={styles.summaryType}>{category.toUpperCase()} · GRZEGÓRZKI</Text>
-              <Text numberOfLines={2} style={styles.summaryTitle}>{title}</Text>
-              <Text style={styles.summaryMeta}>sobota, 11:00 · otwarte dla sąsiadów</Text>
-            </View>
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.photoSmall} /> : null}
+          <StatusChip tone="green" icon="checkmark-circle">Brief gotowy do akceptacji</StatusChip>
+          <Text style={styles.title}>Sprawdź Brief</Text>
+          <Text style={styles.helper}>AI przygotowało szkic. Gracz zawsze może go poprawić przed publikacją.</Text>
+
+          <Field label="Tytuł · max 60 znaków" value={title} onChangeText={(v) => setTitle(v.slice(0, 60))} />
+          <Field label="Kategoria" value={category} onChangeText={setCategory} />
+          <Field label="Problem" multiline value={problem} onChangeText={setProblem} />
+          <Field label="Proponowane działanie" multiline value={proposedAction} onChangeText={setProposedAction} />
+          <Field label="Dlaczego to ważne" multiline value={whyImportant} onChangeText={setWhyImportant} />
+          <Text style={styles.sectionLabel}>Potrzebne zasoby</Text>
+          <Field label="Ludzie" value={people} onChangeText={setPeople} />
+          <Field label="Sprzęt" value={equipment} onChangeText={setEquipment} />
+          <Field label="Transport" value={transport} onChangeText={setTransport} />
+
+          <Text style={styles.sectionLabel}>Kto naprawi?</Text>
+          <Text style={styles.helperSmall}>AI sugeruje wykonawcę, ale decyzję potwierdza Gracz.</Text>
+          <View style={styles.fixerRow}>
+            {(['Miasto', 'Gildia', 'Gracze'] as Fixer[]).map((value) => (
+              <Pressable key={value} onPress={() => setFixer(value)} style={[styles.fixer, fixer === value && styles.fixerActive]}>
+                <Text style={[styles.fixerText, fixer === value && styles.fixerTextActive]}>{value}</Text>
+              </Pressable>
+            ))}
           </View>
-          <View style={styles.reward}><Ionicons color={colors.signal} name="checkmark-circle" size={25} /><Text style={styles.rewardText}>Po publikacji inicjatywa pojawi się na mapie jako wersja demonstracyjna.</Text></View>
-          <PrimaryButton disabled={!title.trim() || !description.trim()} icon="send" onPress={() => onPublish({ ...initiatives[0], id: `draft-${Date.now()}`, title, shortTitle: title, description, type: role === 'ngo' ? 'Misja NGO' : 'Misja' })} style={styles.next}>
-            Opublikuj inicjatywę
-          </PrimaryButton>
+
+          <Field label="Miejsce" value={place} onChangeText={setPlace} />
+          <View style={styles.publishNote}><Ionicons color={colors.signal} name="star" size={20} /><Text style={styles.publishNoteText}>Mock MVP: publikacja doda pinezkę lokalnie i przyzna +100 Punktów.</Text></View>
+          <PrimaryButton disabled={!title.trim() || !problem.trim() || !proposedAction.trim()} icon="send" onPress={publish} style={styles.next}>Opublikuj Inicjatywę</PrimaryButton>
         </ScrollView>
       )}
     </KeyboardAvoidingView>
+  );
+}
+
+function Field({ label, multiline = false, ...props }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.textArea]} textAlignVertical={multiline ? 'top' : 'center'} />
+    </View>
   );
 }
 
@@ -100,39 +174,22 @@ const styles = StyleSheet.create({
   progressPart: { backgroundColor: colors.border, borderRadius: 99, flex: 1, height: 5 },
   progressPartActive: { backgroundColor: colors.signal },
   content: { padding: 18, paddingBottom: 42 },
-  title: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 27, letterSpacing: -0.7, marginTop: 12 },
-  helper: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 6 },
-  search: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, height: 52, marginTop: 24, paddingHorizontal: 16 },
-  searchText: { color: colors.muted, fontFamily: fonts.body, fontSize: 14 },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
-  category: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 9, minHeight: 66, padding: 10, width: '48.5%' },
-  categoryActive: { borderColor: colors.signal, borderWidth: 2 },
-  categoryIcon: { alignItems: 'center', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 },
-  categoryText: { color: colors.ink, flex: 1, fontFamily: fonts.bodyBold, fontSize: 13 },
-  categoryTextActive: { color: colors.deep },
-  tip: { alignItems: 'center', backgroundColor: colors.violetSoft, borderRadius: 17, flexDirection: 'row', gap: 10, marginTop: 18, padding: 15 },
-  tipText: { color: colors.ink, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
-  next: { marginTop: 24 },
-  miniMap: { borderColor: colors.border, borderRadius: 22, borderWidth: 1, height: 315, marginTop: 22, overflow: 'hidden' },
-  webMap: { backgroundColor: '#E8EDF5', flex: 1 },
-  addressCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, marginTop: 14, padding: 15 },
-  addressTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 },
-  addressMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, marginTop: 3 },
-  label: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.8, marginTop: 24, textTransform: 'uppercase' },
-  dateRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
-  dateBox: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 17, borderWidth: 1, flex: 1, padding: 14 },
-  dateSmall: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.7 },
-  dateLarge: { color: colors.ink, fontFamily: fonts.heading, fontSize: 17, marginTop: 4 },
-  input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 15, marginTop: 8, minHeight: 54, paddingHorizontal: 15, paddingVertical: 14 },
-  textArea: { minHeight: 118 },
-  counter: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 6, textAlign: 'right' },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  summary: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 14, marginTop: 24, padding: 15 },
-  summaryMarker: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 29, height: 58, justifyContent: 'center', width: 58 },
-  summaryCopy: { flex: 1 },
-  summaryType: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.5 },
-  summaryTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 16, lineHeight: 21, marginTop: 5 },
-  summaryMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 4 },
-  reward: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 17, flexDirection: 'row', gap: 11, marginTop: 14, padding: 14 },
-  rewardText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
+  heroIcon: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 28, height: 56, justifyContent: 'center', marginTop: 10, width: 56 },
+  title: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 27, letterSpacing: -0.7, marginTop: 14 },
+  helper: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 7 },
+  helperSmall: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 5 },
+  ruleCard: { alignItems: 'flex-start', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 12, marginTop: 24, padding: 16 },
+  ruleCopy: { flex: 1 }, ruleTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 14 }, ruleBody: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  next: { marginTop: 22 },
+  photo: { borderRadius: 22, height: 220, marginBottom: 18, width: '100%' },
+  photoSmall: { borderRadius: 18, height: 150, marginBottom: 16, width: '100%' },
+  chat: { gap: 10, marginTop: 20 }, aiBubble: { alignSelf: 'flex-start', backgroundColor: colors.violetSoft, borderRadius: 18, maxWidth: '88%', padding: 14 }, aiLabel: { color: colors.violet, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 }, aiText: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 20, marginTop: 5 },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: colors.signal, borderRadius: 18, maxWidth: '86%', padding: 13 }, userText: { color: colors.surface, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
+  input: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 14, minHeight: 52, paddingHorizontal: 14, paddingVertical: 12 },
+  answerInput: { marginTop: 18, minHeight: 92 },
+  textArea: { minHeight: 96 },
+  field: { marginTop: 17 }, label: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.5, marginBottom: 7, textTransform: 'uppercase' },
+  sectionLabel: { color: colors.ink, fontFamily: fonts.heading, fontSize: 18, marginTop: 26 },
+  fixerRow: { flexDirection: 'row', gap: 8, marginTop: 12 }, fixer: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flex: 1, paddingVertical: 11 }, fixerActive: { backgroundColor: colors.signal, borderColor: colors.signal }, fixerText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 }, fixerTextActive: { color: colors.surface },
+  publishNote: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 16, flexDirection: 'row', gap: 10, marginTop: 20, padding: 14 }, publishNoteText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
 });
