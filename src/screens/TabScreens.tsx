@@ -1,9 +1,32 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav, InitiativeRow, PrimaryButton, StatusChip } from '../components';
 import { rewards } from '../data';
 import { colors, fonts } from '../theme';
+
+export function SignInScreen({ nickname, onContinue }) {
+  const [value, setValue] = useState(nickname === 'Gracz Demo' ? '' : nickname);
+  return (
+    <View style={styles.signInScreen}>
+      <View style={styles.signInMark}><Ionicons color={colors.surface} name="location" size={30} /></View>
+      <Text style={styles.signInBrand}>SiteQuest</Text>
+      <Text style={styles.signInTitle}>Jak mamy Cię nazywać?</Text>
+      <Text style={styles.signInText}>MVP używa wyłącznie pseudonimu — bez hasła, maila i dodatkowych danych.</Text>
+      <TextInput
+        autoCapitalize="words"
+        maxLength={24}
+        onChangeText={setValue}
+        placeholder="Twój pseudonim"
+        placeholderTextColor={colors.muted}
+        style={styles.signInInput}
+        value={value}
+      />
+      <PrimaryButton disabled={!value.trim()} icon="arrow-forward" onPress={() => onContinue(value.trim())} style={styles.signInButton}>Zaczynam</PrimaryButton>
+      <Text style={styles.signInFoot}>W pełnej wersji logowanie może zostać rozszerzone o mObywatel; nie jest to część MVP.</Text>
+    </View>
+  );
+}
 
 function Shell({ active, onNavigate, children }) {
   return <View style={styles.screen}><View style={styles.body}>{children}</View><BottomNav active={active} onSelect={onNavigate} /></View>;
@@ -96,6 +119,14 @@ function MiniStat({ label, value }) {
 }
 
 const styles = StyleSheet.create({
+  signInScreen: { backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 26 },
+  signInMark: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 29, height: 58, justifyContent: 'center', width: 58 },
+  signInBrand: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 18, marginTop: 14 },
+  signInTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 30, lineHeight: 36, marginTop: 24 },
+  signInText: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 8 },
+  signInInput: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 17, borderWidth: 1, color: colors.ink, fontFamily: fonts.body, fontSize: 16, marginTop: 24, minHeight: 56, paddingHorizontal: 16 },
+  signInButton: { marginTop: 12 },
+  signInFoot: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, lineHeight: 15, marginTop: 14, textAlign: 'center' },
   screen: { backgroundColor: colors.background, flex: 1 }, body: { flex: 1 }, content: { padding: 18, paddingBottom: 32 },
   eyebrow: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 1.1, marginTop: 8 }, title: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 30, marginTop: 4 }, subtitle: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 7 },
   stats: { flexDirection: 'row', gap: 10, marginTop: 18 }, stat: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 17, borderWidth: 1, flex: 1, padding: 14 }, statValue: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 22 }, statLabel: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, marginTop: 3, textAlign: 'center' },
