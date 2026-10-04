@@ -248,11 +248,21 @@ function VotingInitiativeCard({
 
               <View style={styles.problemBlock}>
                 <View style={styles.problemLabelRow}>
-                  <Ionicons color={colors.signal} name="alert-circle-outline" size={17} />
+                  <Ionicons color={colors.signal} name="alert-circle-outline" size={15} />
                   <Text style={styles.problemLabel}>PROBLEM</Text>
                 </View>
-                <Text numberOfLines={4} style={styles.problemPreview}>
+                <Text numberOfLines={3} style={styles.problemPreview}>
                   {initiative.brief.problem}
+                </Text>
+              </View>
+
+              <View style={styles.solutionBlock}>
+                <View style={styles.problemLabelRow}>
+                  <Ionicons color={colors.resolved} name="hammer-outline" size={15} />
+                  <Text style={styles.solutionLabel}>PROPONOWANE ROZWIĄZANIE</Text>
+                </View>
+                <Text numberOfLines={3} style={styles.solutionPreview}>
+                  {initiative.brief.proposedAction}
                 </Text>
               </View>
 
@@ -282,7 +292,7 @@ function VotingInitiativeCard({
             onPress={dismissLeft}
             style={({ pressed }) => [styles.actionBubble, styles.rejectBubble, pressed && styles.actionBubblePressed]}
           >
-            <Ionicons color={colors.error} name="close" size={34} />
+            <Ionicons color={colors.error} name="close" size={28} />
           </Pressable>
 
           <Pressable
@@ -300,7 +310,7 @@ function VotingInitiativeCard({
             {checking ? (
               <Text style={styles.checkingText}>GPS</Text>
             ) : (
-              <Ionicons color={colors.resolved} name={initiative.hasVoted ? 'checkmark' : 'heart'} size={31} />
+              <Ionicons color={colors.resolved} name={initiative.hasVoted ? 'checkmark' : 'heart'} size={27} />
             )}
           </Pressable>
         </View>
@@ -528,11 +538,11 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: 16, paddingBottom: 40 },
 
-  tinderStage: { flex: 1, paddingHorizontal: 14, paddingTop: 12 },
+  tinderStage: { flex: 1, paddingHorizontal: 14, paddingTop: 6 },
   tinderCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 28,
+    borderRadius: 24,
     borderWidth: 1,
     flex: 1,
     overflow: 'hidden',
@@ -540,7 +550,7 @@ const styles = StyleSheet.create({
   },
   cardScroll: { flexGrow: 1 },
   cardTapArea: { flex: 1 },
-  tinderHero: { height: 238, overflow: 'hidden', position: 'relative' },
+  tinderHero: { height: 112, overflow: 'hidden', position: 'relative' },
   tinderPhoto: { height: '100%', width: '100%' },
   heroShade: {
     backgroundColor: 'rgba(16,24,40,.14)',
@@ -556,20 +566,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     flexDirection: 'row',
     gap: 6,
-    left: 14,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
+    left: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     position: 'absolute',
-    top: 14,
+    top: 10,
   },
   heroCategoryText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.5 },
   tinderHeroFallback: { alignItems: 'center', justifyContent: 'center' },
   categoryOrb: {
     alignItems: 'center',
-    borderRadius: 38,
-    height: 76,
+    borderRadius: 25,
+    height: 50,
     justifyContent: 'center',
-    width: 76,
+    width: 50,
   },
 
   swipeBadge: {
@@ -590,7 +600,7 @@ const styles = StyleSheet.create({
   swipeBadgeTextReject: { color: colors.error },
   swipeBadgeTextApprove: { color: colors.resolved },
 
-  cardBody: { padding: 18, paddingBottom: 16 },
+  cardBody: { padding: 14, paddingBottom: 12 },
   topMetaRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   distancePill: {
     alignItems: 'center',
@@ -598,39 +608,49 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     flexDirection: 'row',
     gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   distancePillText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10 },
-  tinderTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 25, lineHeight: 31, marginTop: 12 },
-  tinderPlace: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginTop: 5 },
+  tinderTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 21, lineHeight: 26, marginTop: 9 },
+  tinderPlace: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 15, marginTop: 3 },
 
   problemBlock: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: 15,
     borderWidth: 1,
-    marginTop: 16,
-    padding: 14,
+    marginTop: 10,
+    padding: 10,
   },
-  problemLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
-  problemLabel: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.8 },
+  problemLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  problemLabel: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 },
+  solutionBlock: {
+    backgroundColor: colors.mintSoft,
+    borderColor: colors.resolved + '28',
+    borderRadius: 15,
+    borderWidth: 1,
+    marginTop: 8,
+    padding: 10,
+  },
+  solutionLabel: { color: colors.resolved, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7 },
+  solutionPreview: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17, marginTop: 5 },
   openDetailsRow: {
     alignItems: 'center',
     borderTopColor: colors.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 15,
-    paddingTop: 13,
+    marginTop: 10,
+    paddingTop: 9,
   },
-  openDetailsText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 12 },
+  openDetailsText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
 
   voteSummary: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, marginTop: 17 },
   voteSummaryLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 },
   voteSummaryCount: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 24, marginTop: 1 },
   voteSummaryCopy: { flex: 1 },
-  problemPreview: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19 },
+  problemPreview: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17, marginTop: 5 },
 
   progress: { backgroundColor: colors.border, borderRadius: 99, height: 8, marginTop: 13, overflow: 'hidden' },
   progressFill: { borderRadius: 99, height: '100%' },
@@ -671,15 +691,15 @@ const styles = StyleSheet.create({
   expandedContent: { paddingTop: 3 },
   expandedDivider: { backgroundColor: colors.border, height: StyleSheet.hairlineWidth, marginBottom: 2, marginTop: 13 },
 
-  actionRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 48 },
+  actionRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 58 },
   actionBubble: {
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 34,
+    borderRadius: 28,
     borderWidth: 1,
-    height: 68,
+    height: 56,
     justifyContent: 'center',
-    width: 68,
+    width: 56,
     ...shadow,
   },
   rejectBubble: { borderColor: '#F6C7CD' },
@@ -688,8 +708,8 @@ const styles = StyleSheet.create({
   actionBubbleDisabled: { opacity: 0.45 },
   checkingText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
 
-  tinderFooter: { paddingBottom: 14, paddingHorizontal: 16, paddingTop: 9 },
-  swipeHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 10, marginBottom: 8, textAlign: 'center' },
+  tinderFooter: { paddingBottom: 8, paddingHorizontal: 16, paddingTop: 4 },
+  swipeHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 9, marginBottom: 5, textAlign: 'center' },
   gestureMessage: {
     alignItems: 'center',
     backgroundColor: colors.blueSoft,
@@ -719,7 +739,7 @@ const styles = StyleSheet.create({
     width: 86,
   },
   voteOrbText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 29 },
-  heroHint: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1, marginTop: 14 },
+  heroHint: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.9, marginTop: 7 },
 
   title: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 27, lineHeight: 34, marginTop: 14 },
   place: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: 7 },
