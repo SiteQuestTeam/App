@@ -2,6 +2,7 @@ export type ScreenName = 'signin' | 'map' | 'initiatives' | 'rewards' | 'profile
 
 export type InitiativeStatus = 'collecting' | 'passed';
 export type Fixer = 'Miasto' | 'Gildia' | 'Gracze';
+export type KckCategory = 'DAMAGE' | 'POLLUTION' | 'GREENERY' | 'ANIMALS' | 'OTHER';
 
 export interface Coordinates {
   latitude: number;
@@ -38,6 +39,18 @@ export interface Initiative {
   color: string;
   distance?: string;
   hasVoted?: boolean;
+}
+
+export interface KckIncidentDraft {
+  photoUri: string;
+  category: KckCategory;
+  summary: string;
+  description: string;
+  streetName: string;
+  buildingNumber: string;
+  zipCode: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface Reward {
