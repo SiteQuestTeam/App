@@ -3,14 +3,14 @@ name: Android release
 on:
   push:
     branches:
-      - main
+      - deployment
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: android-release-main
+  group: android-release-deployment
   cancel-in-progress: true
 
 jobs:
@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           cat > release-notes.md <<EOF
-          Automated Android release from `main`.
+          Automated Android release from `deployment`.
 
           - Version: ${CI_VERSION_NAME}
           - Version code: ${CI_VERSION_CODE}
