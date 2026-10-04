@@ -65,16 +65,40 @@ export function StatusChip({ children, tone = 'blue', icon }) {
   );
 }
 
-export function BottomNav({ active, onSelect }) {
+export function BottomNav({ active, onSelect, onAdd }) {
   const items = [
     ['map', 'Mapa', 'map'],
     ['initiatives', 'Inicjatywy', 'location'],
     ['rewards', 'Nagrody', 'gift'],
     ['profile', 'Profil', 'person'],
   ];
+
   return (
     <View style={styles.bottomNav}>
-      {items.map(([value, label, icon]) => {
+      {items.slice(0, 2).map(([value, label, icon]) => {
+        const selected = active === value;
+        return (
+          <Pressable key={value} onPress={() => onSelect(value)} style={styles.navItem}>
+            <Ionicons color={selected ? colors.signal : colors.muted} name={selected ? icon : `${icon}-outline`} size={22} />
+            <Text style={[styles.navLabel, selected && styles.navLabelActive]}>{label}</Text>
+          </Pressable>
+        );
+      })}
+
+      {onAdd && (
+        <Pressable
+          accessibilityLabel="Dodaj zgłoszenie"
+          accessibilityRole="button"
+          onPress={onAdd}
+          style={({ pressed }) => [styles.navAddItem, pressed && styles.navAddItemPressed]}
+        >
+          <View style={styles.navAddButton}>
+            <Ionicons color={colors.surface} name="add" size={27} />
+          </View>
+        </Pressable>
+      )}
+
+      {items.slice(2).map(([value, label, icon]) => {
         const selected = active === value;
         return (
           <Pressable key={value} onPress={() => onSelect(value)} style={styles.navItem}>
@@ -125,6 +149,17 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.2, textTransform: 'uppercase' },
   bottomNav: { alignItems: 'center', backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', minHeight: 72, paddingBottom: 4, paddingHorizontal: 4 },
   navItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 56 },
+  navAddItem: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 56 },
+  navAddItemPressed: { opacity: 0.82, transform: [{ scale: 0.96 }] },
+  navAddButton: {
+    alignItems: 'center',
+    backgroundColor: colors.signal,
+    borderRadius: 22,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+    ...shadow,
+  },
   navLabel: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 11 },
   navLabelActive: { color: colors.signal, fontFamily: fonts.bodyBold },
   initiativeRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 13, padding: 14, ...shadow },
