@@ -177,7 +177,14 @@ export default function App() {
       case 'profile':
         return <ProfileScreen onNavigate={navigateTo} player={player} />;
       case 'detail':
-        return <DetailScreen initiative={selected} onBack={() => navigateTo('map')} onVote={() => vote(selected.id)} />;
+        return (
+          <DetailScreen
+            initiative={selected}
+            onBack={() => navigateTo('map')}
+            onVote={() => vote(selected.id)}
+            playerLocation={playerLocation}
+          />
+        );
       case 'creator':
         return (
           <CreatorScreen
