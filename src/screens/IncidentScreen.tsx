@@ -16,6 +16,7 @@ import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader } from '../components';
 import type { KckPrepareResponse } from '../api';
 import { preparationCopy } from '../kck-preparation-layout';
+import { focusedFieldScrollOffset } from '../keyboard-scroll';
 import { colors, fonts, shadow } from '../theme';
 import type { KckCategory, KckIncidentDraft } from '../types';
 
@@ -78,6 +79,12 @@ export function IncidentScreen({
   const [nearby, setNearby] = useState<Extract<KckPrepareResponse, { status: 'PREPARED' }>['nearby']>([]);
   const [interestSubmitting, setInterestSubmitting] = useState(false);
   const [completedAsInterest, setCompletedAsInterest] = useState(false);
+
+  const scrollToFocusedField = (fieldY: number) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: focusedFieldScrollOffset(fieldY), animated: true });
+    }, 100);
+  };
 
   const loadLocationAndAddress = async () => {
     setLocationLoading(true);
@@ -403,6 +410,7 @@ export function IncidentScreen({
 
           <Field
             label="Tytuł"
+            onFocusField={scrollToFocusedField}
             value={summary}
             onChangeText={(value) => setSummary(value.slice(0, 60))}
             placeholder="Krótko: co jest uszkodzone?"
@@ -429,6 +437,7 @@ export function IncidentScreen({
 
           <Field
             label="Opis"
+            onFocusField={scrollToFocusedField}
             value={description}
             onChangeText={(value) => setDescription(value.slice(0, 500))}
             placeholder="Opisz tylko to, co rzeczywiście widać."
@@ -485,6 +494,7 @@ export function IncidentScreen({
 
           <Field
             label="Ulica"
+            onFocusField={scrollToFocusedField}
             value={streetName}
             onChangeText={setStreetName}
             placeholder="np. Stanisława Lema"
@@ -494,6 +504,7 @@ export function IncidentScreen({
             <View style={styles.addressNumber}>
               <Field
                 label="Numer"
+                onFocusField={scrollToFocusedField}
                 value={buildingNumber}
                 onChangeText={setBuildingNumber}
                 placeholder="np. 7"
@@ -502,6 +513,7 @@ export function IncidentScreen({
             <View style={styles.addressZip}>
               <Field
                 label="Kod pocztowy"
+                onFocusField={scrollToFocusedField}
                 value={zipCode}
                 onChangeText={(value) => setZipCode(normalizeZipCode(value))}
                 placeholder="31-571"
@@ -617,7 +629,7 @@ export function IncidentScreen({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.screen}
     >
       <ScreenHeader kicker="KCK" title="Zgłoś usterkę" onBack={onBack} />
@@ -779,6 +791,7 @@ function Field({
   counter,
   keyboardType,
   error,
+  onFocusField,
 }: {
   label: string;
   value: string;
@@ -788,9 +801,11 @@ function Field({
   counter?: string;
   keyboardType?: 'default' | 'number-pad';
   error?: string;
+  onFocusField?: (fieldY: number) => void;
 }) {
+  const fieldY = useRef(0);
   return (
-    <View style={styles.field}>
+    <View onLayout={(event) => { fieldY.current = event.nativeEvent.layout.y; }} style={styles.field}>
       <View style={styles.fieldHeader}>
         <Text style={styles.fieldLabel}>{label}</Text>
         {counter ? <Text style={styles.counter}>{counter}</Text> : null}
@@ -799,6 +814,7 @@ function Field({
         keyboardType={keyboardType}
         multiline={multiline}
         onChangeText={onChangeText}
+        onFocus={() => onFocusField?.(fieldY.current)}
         placeholder={placeholder}
         placeholderTextColor="#98A2B3"
         style={[styles.input, multiline && styles.textarea, error && styles.inputError]}

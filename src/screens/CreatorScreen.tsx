@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -6,6 +6,7 @@ import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { aiStep1, aiStep2 } from '../api';
 import type { AiInitiativeBrief } from '../api';
 import { needsInitiativeDescription } from '../initiative-analysis';
+import { focusedFieldScrollOffset } from '../keyboard-scroll';
 import { colors, fonts } from '../theme';
 import type { Fixer, Initiative } from '../types';
 
@@ -22,6 +23,9 @@ type AiAnswer = {
 };
 
 export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
+  const scrollRef = useRef<ScrollView>(null);
+  const proposalY = useRef(0);
+  const answerY = useRef(0);
   const [step, setStep] = useState(photoUri ? 2 : 1);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -45,6 +49,12 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
   const [needsCity, setNeedsCity] = useState(true);
   const fixer: Fixer = needsCity ? 'Miasto' : 'Gracze';
   const [place, setPlace] = useState('');
+
+  const scrollToFocusedField = (fieldY: number) => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: focusedFieldScrollOffset(fieldY), animated: true });
+    }, 100);
+  };
 
   useEffect(() => {
     if (!photoUri) return;
@@ -251,12 +261,12 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
   const currentQuestion = questions[questionIndex];
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.screen}>
       <ScreenHeader kicker={progress} onBack={step === 1 ? onClose : () => setStep(Math.max(1, step - 1))} title="Nowa Inicjatywa" />
       <View style={styles.progressRow}>{[1, 2, 3].map((n) => <View key={n} style={[styles.progressPart, n <= step && styles.progressPartActive]} />)}</View>
 
       {step === 1 && (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} ref={scrollRef}>
           <View style={styles.heroIcon}><Ionicons color={colors.surface} name="camera" size={28} /></View>
           <Text style={styles.title}>Najpierw Zdjęcie na żywo</Text>
           <Text style={styles.helper}>Zdjęcie musi być wykonane aparatem w aplikacji. W MVP nie używamy galerii.</Text>
@@ -269,7 +279,7 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
       )}
 
       {step === 2 && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" ref={scrollRef}>
           {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} /> : null}
           <StatusChip tone="violet" icon="sparkles">Bogdan · AI</StatusChip>
           <Text style={styles.title}>Doprecyzuj pomysł</Text>
@@ -288,14 +298,17 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
                 <Text style={styles.aiLabel}>BOGDAN · AI</Text>
                 <Text style={styles.aiText}>Co chcesz zmienić w tym miejscu?</Text>
               </View>
-              <TextInput
-                multiline
-                onChangeText={setProposal}
-                placeholder="Np. stojak na rowery przy wejściu"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, styles.answerInput]}
-                value={proposal}
-              />
+              <View onLayout={(event) => { proposalY.current = event.nativeEvent.layout.y; }}>
+                <TextInput
+                  multiline
+                  onChangeText={setProposal}
+                  onFocus={() => scrollToFocusedField(proposalY.current)}
+                  placeholder="Np. stojak na rowery przy wejściu"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.answerInput]}
+                  value={proposal}
+                />
+              </View>
               <PrimaryButton disabled={!proposal.trim()} icon="arrow-forward" onPress={() => void analyzePhoto()} style={styles.next}>
                 Przeanalizuj pomysł
               </PrimaryButton>
@@ -316,14 +329,17 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
               {currentQuestion.suggestions?.length ? (
                 <Text style={styles.helperSmall}>Podpowiedzi: {currentQuestion.suggestions.join(' · ')}</Text>
               ) : null}
-              <TextInput
-                multiline
-                onChangeText={setAnswer}
-                placeholder="Napisz krótką odpowiedź…"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, styles.answerInput]}
-                value={answer}
-              />
+              <View onLayout={(event) => { answerY.current = event.nativeEvent.layout.y; }}>
+                <TextInput
+                  multiline
+                  onChangeText={setAnswer}
+                  onFocus={() => scrollToFocusedField(answerY.current)}
+                  placeholder="Napisz krótką odpowiedź…"
+                  placeholderTextColor={colors.muted}
+                  style={[styles.input, styles.answerInput]}
+                  value={answer}
+                />
+              </View>
               <PrimaryButton disabled={!answer.trim() || aiLoading} icon="arrow-forward" onPress={() => void answerQuestion()} style={styles.next}>
                 {aiLoading ? 'Tworzę Brief…' : questionIndex === questions.length - 1 ? 'Utwórz Brief' : 'Dalej'}
               </PrimaryButton>
@@ -344,21 +360,21 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
       )}
 
       {briefReady && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" ref={scrollRef}>
           {photoUri ? <Image source={{ uri: photoUri }} style={styles.photoSmall} /> : null}
           <StatusChip tone="green" icon="checkmark-circle">Brief gotowy do akceptacji</StatusChip>
           <Text style={styles.title}>Sprawdź Brief</Text>
           <Text style={styles.helper}>AI przygotowało szkic. Gracz zawsze może go poprawić przed publikacją.</Text>
 
-          <Field label="Tytuł · max 60 znaków" value={title} onChangeText={(v) => setTitle(v.slice(0, 60))} />
-          <Field label="Kategoria" value={category} onChangeText={setCategory} />
-          <Field label="Problem" multiline value={problem} onChangeText={setProblem} />
-          <Field label="Proponowane działanie" multiline value={proposedAction} onChangeText={setProposedAction} />
-          <Field label="Dlaczego to ważne" multiline value={whyImportant} onChangeText={setWhyImportant} />
+          <Field label="Tytuł · max 60 znaków" onFocusField={scrollToFocusedField} value={title} onChangeText={(v) => setTitle(v.slice(0, 60))} />
+          <Field label="Kategoria" onFocusField={scrollToFocusedField} value={category} onChangeText={setCategory} />
+          <Field label="Problem" multiline onFocusField={scrollToFocusedField} value={problem} onChangeText={setProblem} />
+          <Field label="Proponowane działanie" multiline onFocusField={scrollToFocusedField} value={proposedAction} onChangeText={setProposedAction} />
+          <Field label="Dlaczego to ważne" multiline onFocusField={scrollToFocusedField} value={whyImportant} onChangeText={setWhyImportant} />
           <Text style={styles.sectionLabel}>Potrzebne zasoby</Text>
-          <Field label="Ludzie" value={people} onChangeText={setPeople} />
-          <Field label="Sprzęt" value={equipment} onChangeText={setEquipment} />
-          <Field label="Transport" value={transport} onChangeText={setTransport} />
+          <Field label="Ludzie" onFocusField={scrollToFocusedField} value={people} onChangeText={setPeople} />
+          <Field label="Sprzęt" onFocusField={scrollToFocusedField} value={equipment} onChangeText={setEquipment} />
+          <Field label="Transport" onFocusField={scrollToFocusedField} value={transport} onChangeText={setTransport} />
 
           <Text style={styles.sectionLabel}>Kto naprawi?</Text>
           <Text style={styles.helperSmall}>AI sugeruje wynik. Gracz może go potwierdzić albo zmienić przed publikacją.</Text>
@@ -369,7 +385,7 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
           />
           <View style={styles.fixerResult}><Text style={styles.fixerResultLabel}>WYNIK</Text><Text style={styles.fixerResultValue}>{fixer}</Text></View>
 
-          <Field label="Miejsce" value={place} onChangeText={setPlace} />
+          <Field label="Miejsce" onFocusField={scrollToFocusedField} value={place} onChangeText={setPlace} />
           {aiError ? <Text style={styles.helperSmall}>{aiError}</Text> : null}
           <PrimaryButton disabled={!title.trim() || !problem.trim() || !proposedAction.trim() || publishing} icon="send" onPress={() => void publish()} style={styles.next}>
             {publishing ? 'Publikuję…' : 'Opublikuj Inicjatywę'}
@@ -384,11 +400,12 @@ function DecisionRow({ label, value, onChange }) {
   return <View style={styles.decisionCard}><Text style={styles.decisionLabel}>{label}</Text><View style={styles.decisionButtons}><Pressable onPress={() => onChange(true)} style={[styles.decisionButton, value && styles.decisionButtonActive]}><Text style={[styles.decisionText, value && styles.decisionTextActive]}>Tak</Text></Pressable><Pressable onPress={() => onChange(false)} style={[styles.decisionButton, !value && styles.decisionButtonActive]}><Text style={[styles.decisionText, !value && styles.decisionTextActive]}>Nie</Text></Pressable></View></View>;
 }
 
-function Field({ label, multiline = false, ...props }) {
+function Field({ label, multiline = false, onFocusField, ...props }) {
+  const fieldY = useRef(0);
   return (
-    <View style={styles.field}>
+    <View onLayout={(event) => { fieldY.current = event.nativeEvent.layout.y; }} style={styles.field}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.textArea]} textAlignVertical={multiline ? 'top' : 'center'} />
+      <TextInput {...props} multiline={multiline} onFocus={() => onFocusField?.(fieldY.current)} style={[styles.input, multiline && styles.textArea]} textAlignVertical={multiline ? 'top' : 'center'} />
     </View>
   );
 }
