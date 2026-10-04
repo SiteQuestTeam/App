@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -24,17 +24,14 @@ const distanceMeters = (
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, onLoadingChange, player }) {
+export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
 
   const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
   const [mapError, setMapError] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
-  const [locationReady, setLocationReady] = useState(false);
-  const [locationUnavailable, setLocationUnavailable] = useState(false);
   const [anchored, setAnchored] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'scouting' | 'raid' | 'quest'>('scouting');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -60,8 +57,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     let active = true;
     let subscription: any = null;
 
-    setLocationReady(false);
-    setLocationUnavailable(false);
     setLocationIssue(null);
 
     const start = async () => {
@@ -70,7 +65,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!enabled) {
           if (!active) return;
           setLocationIssue('Wyłączony GPS');
-          setLocationUnavailable(true);
           return;
         }
 
@@ -78,7 +72,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!permission.granted) {
           if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
-          setLocationUnavailable(true);
           return;
         }
 
@@ -87,8 +80,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
         latestLocation.current = first;
         setLocationIssue(null);
-        setLocationUnavailable(false);
-        setLocationReady(true);
         webView.current?.injectJavaScript(
           'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
@@ -106,8 +97,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       } catch {
         if (!active) return;
         setLocationIssue('Brak sygnału GPS');
-        setLocationReady(false);
-        setLocationUnavailable(true);
       }
     };
 
@@ -118,19 +107,9 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     };
   }, []);
 
-  const bootLoading = !locationUnavailable && (!mapReady || !locationReady);
-
-  useEffect(() => {
-    onLoadingChange?.(bootLoading);
-  }, [bootLoading, onLoadingChange]);
-
   const handleMessage = (event) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-
-      if (message.type === 'ready') {
-        setMapReady(true);
-      }
 
       if (message.type === 'initiative') {
         const initiative = initiatives.find((item) => item.id === message.id);
@@ -179,14 +158,8 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           <WebView
             ref={webView}
             javaScriptEnabled
-            onError={() => {
-              setMapError(true);
-              setMapReady(true);
-            }}
-            onHttpError={() => {
-              setMapError(true);
-              setMapReady(true);
-            }}
+            onError={() => setMapError(true)}
+            onHttpError={() => setMapError(true)}
             onMessage={handleMessage}
             onLoadEnd={() => {
               const loc = latestLocation.current;
@@ -197,9 +170,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
               }
             }}
             originWhitelist={['*']}
-            renderLoading={() => <ActivityIndicator color={colors.signal} size="large" style={styles.loader} />}
             source={{ html }}
-            startInLoadingState
             style={styles.map}
           />
         )}
@@ -345,7 +316,6 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   mapArea: { flex: 1, overflow: 'hidden' },
   map: { flex: 1 },
-  loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
   fallback: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
   fallbackTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 19, marginTop: 12 },
   top: { left: 12, position: 'absolute', right: 12, top: 12 },
