@@ -300,10 +300,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           style={({ pressed }) => [styles.createPill, pressed && styles.createPillPressed]}
         >
           <Animated.View style={[styles.createPillFill, { width: incidentFillWidth }]} />
-          <View style={[styles.createIcon, heldAction === 'incident' && styles.createIconHeld]}>
-            <Ionicons color={heldAction === 'incident' ? colors.surface : colors.signal} name="construct-outline" size={17} />
-          </View>
-          <Text style={[styles.createPillText, heldAction === 'incident' && styles.createPillTextHeld]}>Zgłoś usterkę</Text>
+          <Text numberOfLines={1} style={[styles.createPillText, heldAction === 'incident' && styles.createPillTextHeld]}>Zgłoś usterkę</Text>
         </Pressable>
 
         <Pressable
@@ -317,10 +314,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           style={({ pressed }) => [styles.createPill, pressed && styles.createPillPressed]}
         >
           <Animated.View style={[styles.createPillFill, { width: initiativeFillWidth }]} />
-          <View style={[styles.createIcon, heldAction === 'initiative' && styles.createIconHeld]}>
-            <Ionicons color={heldAction === 'initiative' ? colors.surface : colors.signal} name="sparkles-outline" size={17} />
-          </View>
-          <Text style={[styles.createPillText, heldAction === 'initiative' && styles.createPillTextHeld]}>Zgłoś inicjatywę</Text>
+          <Text numberOfLines={1} style={[styles.createPillText, heldAction === 'initiative' && styles.createPillTextHeld]}>Zgłoś inicjatywę</Text>
         </Pressable>
       </Animated.View>
 
@@ -364,7 +358,7 @@ const styles = StyleSheet.create({
   createCluster: {
     bottom: 137,
     flexDirection: 'row',
-    gap: 64,
+    gap: 40,
     justifyContent: 'center',
     left: 14,
     position: 'absolute',
@@ -432,9 +426,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
-    gap: 8,
     justifyContent: 'center',
-    maxWidth: 166,
+    maxWidth: 170,
     minHeight: 54,
     overflow: 'hidden',
     paddingHorizontal: 12,
@@ -450,21 +443,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
   },
-  createIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.blueSoft,
-    borderRadius: 16,
-    height: 30,
-    justifyContent: 'center',
-    width: 30,
-  },
-  createIconHeld: {
-    backgroundColor: 'rgba(255,255,255,.18)',
-  },
   createPillText: {
     color: colors.ink,
     fontFamily: fonts.bodyBold,
     fontSize: 12,
+    letterSpacing: -0.15,
   },
   createPillTextHeld: {
     color: colors.surface,
