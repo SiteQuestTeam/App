@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useFonts as useInterFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -8,6 +8,7 @@ import { DetailScreen } from './src/screens/DetailScreen';
 import { CreatorScreen } from './src/screens/CreatorScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { IncidentScreen } from './src/screens/IncidentScreen';
+import { StartupStateScreen } from './src/screens/StartupStateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { initiatives as initialInitiatives } from './src/data';
@@ -35,7 +36,13 @@ export default function App() {
   );
 
   if (!manropeLoaded || !interLoaded) {
-    return <View style={styles.loading}><ActivityIndicator color={colors.signal} size="large" /></View>;
+    return (
+      <StartupStateScreen
+        mode="loading"
+        title="Uruchamiamy SideQuest"
+        body="Przygotowujemy aplikację i mapę. To potrwa tylko chwilę."
+      />
+    );
   }
 
   const openInitiative = (initiative: Initiative) => {
@@ -158,5 +165,4 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.surface, flex: 1 },
-  loading: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
 });
