@@ -41,7 +41,6 @@ export default function App() {
         <StatusBar backgroundColor={colors.surface} barStyle="dark-content" />
         <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
           <StartupStateScreen
-            mode="loading"
             title="Uruchamiamy SideQuest"
             body="Przygotowujemy aplikację i mapę. To potrwa tylko chwilę."
           />
