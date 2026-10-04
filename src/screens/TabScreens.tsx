@@ -6,7 +6,7 @@ import { colors, fonts } from '../theme';
 import type { Reward, ScreenName } from '../types';
 
 export function SignInScreen({ nickname, onContinue }) {
-  const [value, setValue] = useState(nickname === 'Gracz Demo' ? '' : nickname);
+  const [value, setValue] = useState(nickname);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {

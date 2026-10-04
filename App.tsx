@@ -29,7 +29,7 @@ import type { Initiative, KckIncidentDraft, PlayerState, Reward, ScreenName } fr
 
 const EMPTY_PLAYER: PlayerState = {
   id: '',
-  nickname: 'Gracz Demo',
+  nickname: '',
   pointsBalance: 0,
   totalPointsEarned: 0,
   rank: 'Nowy Gracz',

@@ -1,10 +1,10 @@
-import { KRAKOW_CENTER } from './data';
 import type { Initiative, MapHtmlOptions } from './types';
 
+const DEFAULT_MAP_CENTER = { latitude: 50.06747, longitude: 19.99169 };
 const escapeJson = (value: unknown): string => JSON.stringify(value).replace(/</g, '\\u003c');
 
 export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions = {}): string {
-  const center = options.center || KRAKOW_CENTER;
+  const center = options.center || DEFAULT_MAP_CENTER;
   const compact = Boolean(options.compact);
   const webSafe = Boolean(options.webSafe);
   const markers = initiatives.map((item) => ({
