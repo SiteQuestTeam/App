@@ -6,6 +6,7 @@ import { WebView } from 'react-native-webview';
 import { BottomNav, StatusChip } from '../components';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
+import { StartupStateScreen } from './StartupStateScreen';
 
 const INITIATIVE_OPEN_RADIUS_METERS = 50;
 
@@ -31,7 +32,11 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
   const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
   const [mapError, setMapError] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
+  const [locationReady, setLocationReady] = useState(false);
+  const [locationUnavailable, setLocationUnavailable] = useState(false);
+  const [locationAttempt, setLocationAttempt] = useState(0);
   const [anchored, setAnchored] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'scouting' | 'raid' | 'quest'>('scouting');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -57,17 +62,25 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     let active = true;
     let subscription: any = null;
 
+    setLocationReady(false);
+    setLocationUnavailable(false);
+    setLocationIssue(null);
+
     const start = async () => {
       try {
         const enabled = await Location.hasServicesEnabledAsync();
         if (!enabled) {
+          if (!active) return;
           setLocationIssue('Wyłączony GPS');
+          setLocationUnavailable(true);
           return;
         }
 
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) {
+          if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
+          setLocationUnavailable(true);
           return;
         }
 
@@ -76,6 +89,8 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
         latestLocation.current = first;
         setLocationIssue(null);
+        setLocationUnavailable(false);
+        setLocationReady(true);
         webView.current?.injectJavaScript(
           'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
@@ -91,7 +106,10 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           },
         );
       } catch {
-        if (active) setLocationIssue('Brak sygnału GPS');
+        if (!active) return;
+        setLocationIssue('Brak sygnału GPS');
+        setLocationReady(false);
+        setLocationUnavailable(true);
       }
     };
 
@@ -100,7 +118,23 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       active = false;
       subscription?.remove();
     };
-  }, []);
+  }, [locationAttempt]);
+
+  const retryLocation = () => {
+    latestLocation.current = null;
+    setLocationIssue(null);
+    setLocationUnavailable(false);
+    setLocationReady(false);
+    setLocationAttempt((attempt) => attempt + 1);
+  };
+
+  const bootLoading = !locationUnavailable && (!mapReady || !locationReady);
+
+  const gpsMessage = locationIssue === 'Wyłączony GPS'
+    ? 'Włącz GPS w telefonie, a potem spróbuj ponownie. Lokalizacja jest potrzebna do mapy i działań na miejscu.'
+    : locationIssue === 'Brak dostępu do GPS'
+      ? 'Zezwól SideQuest na dostęp do lokalizacji, aby korzystać z mapy i oddawać Głosy na miejscu.'
+      : 'Nie udało się ustalić Twojej pozycji. Sprawdź GPS i spróbuj ponownie.';
 
   const handleMessage = (event) => {
     try {
@@ -153,10 +187,17 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           <WebView
             ref={webView}
             javaScriptEnabled
-            onError={() => setMapError(true)}
-            onHttpError={() => setMapError(true)}
+            onError={() => {
+              setMapError(true);
+              setMapReady(true);
+            }}
+            onHttpError={() => {
+              setMapError(true);
+              setMapReady(true);
+            }}
             onMessage={handleMessage}
             onLoadEnd={() => {
+              setMapReady(true);
               const loc = latestLocation.current;
               if (loc) {
                 webView.current?.injectJavaScript(
@@ -305,12 +346,39 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       </Pressable>
 
       <BottomNav active="map" onSelect={onNavigate} />
+
+      {bootLoading && (
+        <View style={styles.startupOverlay}>
+          <StartupStateScreen
+            mode="loading"
+            title="Ładowanie mapy…"
+            body="Ustalamy Twoją lokalizację i przygotowujemy najbliższe miejsca."
+          />
+        </View>
+      )}
+
+      {locationUnavailable && (
+        <View style={styles.startupOverlay}>
+          <StartupStateScreen
+            mode="gps"
+            title="Brak sygnału GPS"
+            body={gpsMessage}
+            onRetry={retryLocation}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
+  startupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background,
+    elevation: 50,
+    zIndex: 100,
+  },
   mapArea: { flex: 1, overflow: 'hidden' },
   map: { flex: 1 },
   loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
