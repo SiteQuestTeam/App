@@ -92,8 +92,8 @@ android {
         applicationId 'com.anonymous.sitequestapp'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode (System.getenv("CI_VERSION_CODE") ?: "1").toInteger()
+        versionName System.getenv("CI_VERSION_NAME") ?: "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
