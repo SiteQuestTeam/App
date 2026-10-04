@@ -72,6 +72,7 @@ export interface PlayerState {
 export interface MapHtmlOptions {
   center?: Coordinates;
   compact?: boolean;
+  webSafe?: boolean;
 }
 
 export type MapBridgeMessage =
