@@ -8,6 +8,7 @@ import { DetailScreen } from './src/screens/DetailScreen';
 import { CreatorScreen } from './src/screens/CreatorScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { IncidentScreen } from './src/screens/IncidentScreen';
+import { PermissionGateScreen } from './src/screens/PermissionGateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { initiatives as initialInitiatives } from './src/data';
@@ -16,6 +17,7 @@ import type { Initiative, PlayerState, ScreenName } from './src/types';
 export default function App() {
   useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
   useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
+  const [accessReady, setAccessReady] = useState(false);
   const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('tea');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
@@ -146,6 +148,17 @@ export default function App() {
     }
   };
 
+  if (!accessReady) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+        <SafeAreaView edges={['top', 'bottom']} style={styles.permissionSafeArea}>
+          <PermissionGateScreen onReady={() => setAccessReady(true)} />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <StatusBar backgroundColor={screen === 'camera' ? '#000' : colors.surface} barStyle={screen === 'camera' ? 'light-content' : 'dark-content'} />
@@ -158,4 +171,5 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: colors.surface, flex: 1 },
+  permissionSafeArea: { backgroundColor: colors.background, flex: 1 },
 });
