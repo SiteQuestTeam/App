@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,7 +95,7 @@ export function DetailScreen({ initiative, onBack, onVote }) {
           </View>
         )}
 
-        <PrimaryButton disabled={passed || initiative.hasVoted || (distance !== null && distance > 50)} icon={passed ? 'checkmark' : initiative.hasVoted ? 'checkmark-circle' : 'megaphone'} onPress={handlePress} tone={passed ? 'green' : 'blue'} style={styles.cta}>
+        <PrimaryButton disabled={passed || initiative.hasVoted} icon={passed ? 'checkmark' : initiative.hasVoted ? 'checkmark-circle' : 'megaphone'} onPress={handlePress} tone={passed ? 'green' : 'blue'} style={styles.cta}>
           {checking ? 'Sprawdzam GPS…' : ctaText}
         </PrimaryButton>
         {initiative.id === 'tea' && !passed && !initiative.hasVoted && <Text style={styles.demoHint}>Demo HackYeah: ta Inicjatywa startuje z 9/10 i mockowo jest w zasięgu, aby pokazać przejście do 10/10.</Text>}
