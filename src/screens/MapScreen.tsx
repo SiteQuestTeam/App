@@ -24,7 +24,7 @@ const distanceMeters = (
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player, gpsRetryToken = 0, onGpsStateChange }) {
+export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
@@ -63,7 +63,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     setLocationReady(false);
     setLocationUnavailable(false);
     setLocationIssue(null);
-    onGpsStateChange?.({ unavailable: false, issue: null });
 
     const start = async () => {
       try {
@@ -72,7 +71,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           if (!active) return;
           setLocationIssue('Wyłączony GPS');
           setLocationUnavailable(true);
-          onGpsStateChange?.({ unavailable: true, issue: 'Wyłączony GPS' });
           return;
         }
 
@@ -81,7 +79,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
           setLocationUnavailable(true);
-          onGpsStateChange?.({ unavailable: true, issue: 'Brak dostępu do GPS' });
           return;
         }
 
@@ -92,7 +89,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         setLocationIssue(null);
         setLocationUnavailable(false);
         setLocationReady(true);
-        onGpsStateChange?.({ unavailable: false, issue: null });
         webView.current?.injectJavaScript(
           'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
@@ -112,7 +108,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         setLocationIssue('Brak sygnału GPS');
         setLocationReady(false);
         setLocationUnavailable(true);
-        onGpsStateChange?.({ unavailable: true, issue: 'Brak sygnału GPS' });
       }
     };
 
@@ -121,7 +116,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       active = false;
       subscription?.remove();
     };
-  }, [gpsRetryToken]);
+  }, []);
 
   const bootLoading = !locationUnavailable && (!mapReady || !locationReady);
 
