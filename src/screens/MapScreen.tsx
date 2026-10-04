@@ -437,7 +437,13 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         onPress={() => setCreateMenuOpen((open) => !open)}
         style={({ pressed }) => [styles.fab, createMenuOpen && styles.fabOpen, pressed && styles.fabPressed]}
       >
-        <Animated.View style={{ transform: [{ rotate: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+        <Animated.View
+          style={{
+            transform: [
+              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) },
+            ],
+          }}
+        >
           <Ionicons color={colors.surface} name="add" size={32} />
         </Animated.View>
       </Pressable>
