@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MapViewport } from '../components/MapViewport';
 import { BottomNav, StatusChip } from '../components';
@@ -45,7 +45,11 @@ export function MapScreen({
 
   const filtered = initiatives;
   const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
-  const html = useMemo(() => createMapHtml(filtered), [htmlKey]);
+  const webSafeMap = Platform.OS === 'web';
+  const html = useMemo(
+    () => createMapHtml(filtered, { webSafe: webSafeMap }),
+    [htmlKey, webSafeMap],
+  );
   const nearbyInitiatives = useMemo(() => {
     if (!playerLocation?.coords) return [];
 
@@ -132,7 +136,7 @@ export function MapScreen({
       }
 
       if (message.type === 'anchor') setAnchored(Boolean(message.active));
-      if (message.type === 'map-error') setMapError(true);
+      if (message.type === 'map-fatal') setMapError(true);
     } catch {}
   };
 
