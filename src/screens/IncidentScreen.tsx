@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader } from '../components';
 import type { KckPrepareResponse } from '../api';
+import { preparationCopy } from '../kck-preparation-layout';
 import { colors, fonts, shadow } from '../theme';
 import type { KckCategory, KckIncidentDraft } from '../types';
 
@@ -601,12 +602,15 @@ export function IncidentScreen({
   );
 
   if (waitingForPreparation) {
+    const copy = preparationCopy(Boolean(coordinates));
     return (
       <View style={styles.analysisScreen}>
         <ScreenHeader kicker="KCK" title="Przygotowuję zgłoszenie" onBack={onBack} />
-        <ActivityIndicator color={colors.signal} size="large" />
-        <Text style={styles.analysisTitle}>{coordinates ? 'Analizuję zdjęcie…' : 'Ustalam lokalizację…'}</Text>
-        <Text style={styles.analysisText}>{coordinates ? 'AI przygotowuje kategorię i opis, a serwer sprawdza adres oraz podobne Usterki.' : 'GPS jest potrzebny, aby przygotować szkic zgłoszenia KCK.'}</Text>
+        <View style={styles.analysisBody}>
+          <ActivityIndicator color={colors.signal} size="large" />
+          <Text style={styles.analysisTitle}>{copy.title}</Text>
+          <Text style={styles.analysisText}>{copy.description}</Text>
+        </View>
       </View>
     );
   }
@@ -1093,7 +1097,8 @@ const styles = StyleSheet.create({
   successLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11, marginTop: 24, textTransform: 'uppercase' },
   incidentId: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 28, marginTop: 4 },
   successBody: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginBottom: 24, marginTop: 14, textAlign: 'center' },
-  analysisScreen: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 30 },
+  analysisScreen: { backgroundColor: colors.background, flex: 1 },
+  analysisBody: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 30 },
   analysisTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 24, marginTop: 18, textAlign: 'center' },
   analysisText: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: 'center' },
 });
