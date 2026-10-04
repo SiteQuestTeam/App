@@ -57,7 +57,7 @@ export function CameraScreen({ onBack, onCapture }) {
               <Text style={styles.retakeButtonText}>Zrób ponownie</Text>
             </Pressable>
             <PrimaryButton
-              icon="check"
+              icon="checkmark"
               onPress={() => onCapture(capturedUri)}
               style={styles.confirmButton}
             >
