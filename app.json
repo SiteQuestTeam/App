@@ -25,6 +25,9 @@
     ],
     "android": {
       "package": "com.anonymous.sitequestapp"
+    },
+    "web": {
+      "bundler": "metro"
     }
   }
 }
