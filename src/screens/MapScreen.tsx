@@ -228,7 +228,12 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           </View>
         </View>
 
-        <View style={styles.actions}>
+        <View
+          style={[
+            styles.actions,
+            nearbyInitiatives.length > 0 ? styles.actionsAboveCard : styles.actionsAboveMenu,
+          ]}
+        >
           <Pressable
             onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
             style={[styles.roundAction, anchored && styles.roundActionActive]}
@@ -372,7 +377,9 @@ const styles = StyleSheet.create({
   filterActive: { backgroundColor: colors.ink, borderColor: colors.ink },
   filterText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 10 },
   filterTextActive: { color: colors.surface },
-  actions: { alignItems: 'flex-end', bottom: 146, gap: 9, position: 'absolute', right: 12 },
+  actions: { alignItems: 'flex-end', gap: 9, position: 'absolute', right: 12, zIndex: 17 },
+  actionsAboveMenu: { bottom: 14 },
+  actionsAboveCard: { bottom: 132 },
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
   roundActionActive: { backgroundColor: colors.signal },
 
