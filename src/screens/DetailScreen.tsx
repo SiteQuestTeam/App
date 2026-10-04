@@ -31,7 +31,7 @@ function distanceMeters(a, b) {
 
 export function DetailScreen({ initiative, onBack, onVote }) {
   const [checking, setChecking] = useState(false);
-  const [distance, setDistance] = useState<number | null>(initiative.id === 'tea' ? 35 : null);
+  const [distance, setDistance] = useState<number | null>(null);
   const [locationError, setLocationError] = useState(false);
 
   if (initiative.status === 'passed') {
@@ -83,8 +83,6 @@ function VotingInitiativeCard({
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [gestureMessage, setGestureMessage] = useState<string | null>(null);
 
-  const canVote = !initiative.hasVoted && distance !== null && distance <= 50;
-
   const resetCard = () => {
     Animated.spring(position, {
       toValue: { x: 0, y: 0 },
@@ -120,11 +118,6 @@ function VotingInitiativeCard({
       return;
     }
 
-    if (canVote) {
-      completeVote();
-      return;
-    }
-
     setGestureMessage('Sprawdzam, czy jesteś w zasięgu Głosu…');
     const meters = await onCheckLocation();
 
@@ -136,7 +129,7 @@ function VotingInitiativeCard({
     setGestureMessage(
       meters === null
         ? 'Nie udało się sprawdzić GPS. Spróbuj ponownie.'
-        : `Podejdź bliżej — Głos możesz oddać w promieniu 50 m. Teraz: ~${Math.round(meters)} m.`,
+        : `Podejdź bliżej — Głos możesz oddać tylko w promieniu 50 m. Teraz: ~${Math.round(meters)} m.`,
     );
     resetCard();
   };
