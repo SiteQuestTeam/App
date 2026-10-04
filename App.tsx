@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useFonts as useInterFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
 import { MapScreen } from './src/screens/MapScreen';
@@ -18,6 +19,8 @@ export default function App() {
   useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
   useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
   const [accessReady, setAccessReady] = useState(false);
+  const [playerLocation, setPlayerLocation] = useState<Location.LocationObject | null>(null);
+  const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('tea');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
@@ -30,6 +33,69 @@ export default function App() {
     totalPointsEarned: 1460,
     rank: 'Sąsiedzki Inicjator',
   });
+
+  useEffect(() => {
+    if (!accessReady) return;
+
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+
+    const startLocationTracking = async () => {
+      try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) {
+          if (active) {
+            setPlayerLocation(null);
+            setLocationIssue('Wyłączony GPS');
+          }
+          return;
+        }
+
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (!permission.granted) {
+          if (active) {
+            setPlayerLocation(null);
+            setLocationIssue('Brak dostępu do GPS');
+          }
+          return;
+        }
+
+        const cached = await Location.getLastKnownPositionAsync({
+          maxAge: 60_000,
+          requiredAccuracy: 100,
+        });
+
+        if (active && cached) {
+          setPlayerLocation(cached);
+          setLocationIssue(null);
+        }
+
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            distanceInterval: 1,
+            timeInterval: 1000,
+          },
+          (next) => {
+            if (!active) return;
+            setPlayerLocation(next);
+            setLocationIssue(null);
+          },
+        );
+      } catch {
+        if (active) {
+          setLocationIssue('Brak sygnału GPS');
+        }
+      }
+    };
+
+    void startLocationTracking();
+
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [accessReady]);
 
   const selected = useMemo(
     () => initiatives.find((item) => item.id === selectedId) || initiatives[0],
@@ -92,10 +158,20 @@ export default function App() {
             onNavigate={navigateTo}
             onOpenInitiative={openInitiative}
             player={player}
+            playerLocation={playerLocation}
+            locationIssue={locationIssue}
           />
         );
       case 'initiatives':
-        return <InitiativesScreen initiatives={initiatives} onNavigate={navigateTo} onOpenInitiative={openInitiative} />;
+        return (
+          <InitiativesScreen
+            initiatives={initiatives}
+            locationIssue={locationIssue}
+            onNavigate={navigateTo}
+            onOpenInitiative={openInitiative}
+            playerLocation={playerLocation}
+          />
+        );
       case 'rewards':
         return <RewardsScreen onNavigate={navigateTo} player={player} onRedeem={(cost) => setPlayer((p) => ({ ...p, pointsBalance: Math.max(0, p.pointsBalance - cost) }))} />;
       case 'profile':
