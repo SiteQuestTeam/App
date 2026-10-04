@@ -115,15 +115,11 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    function getPlayerElevation(lng, lat) {
-      try {
-        const point = map.project([lng, lat]);
-        const buildings = map.queryRenderedFeatures(point, { layers: ['sitequest-3d-buildings'] });
-        const buildingHeight = Math.max(0, ...buildings.map((feature) => Number(feature.properties?.render_height || feature.properties?.height || 0)));
-        return buildingHeight + BEAVER_GROUND_CLEARANCE_METERS;
-      } catch {
-        return 0;
-      }
+    function getPlayerElevation() {
+      // Keep the avatar on the same ground plane as the player ring.
+      // The player layer clears depth before drawing, so the beaver remains readable
+      // without being lifted onto nearby 3D building roofs by GPS drift.
+      return BEAVER_GROUND_CLEARANCE_METERS;
     }
 
     function createPlayerTransform(lng, lat) {
