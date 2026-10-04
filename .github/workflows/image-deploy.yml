@@ -3,6 +3,7 @@ name: Android and Web Docker image
 on:
   push:
     branches:
+      - main
       - image-deploy
   workflow_dispatch:
 
