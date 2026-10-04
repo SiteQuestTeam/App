@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { BottomNav, InitiativeRow, PrimaryButton, StatusChip } from '../components';
 import { rewards } from '../data';
 import { colors, fonts } from '../theme';
@@ -48,18 +49,122 @@ function Shell({ active, onNavigate, children }) {
   return <View style={styles.screen}><View style={styles.body}>{children}</View><BottomNav active={active} onSelect={onNavigate} /></View>;
 }
 
+const INITIATIVES_LIST_RADIUS_METERS = 500;
+
+function distanceMeters(
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number },
+) {
+  const earthRadius = 6371000;
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const lat1 = toRadians(from.latitude);
+  const lat2 = toRadians(to.latitude);
+  const dLat = toRadians(to.latitude - from.latitude);
+  const dLng = toRadians(to.longitude - from.longitude);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function InitiativesScreen({ initiatives, onNavigate, onOpenInitiative }) {
+  const [playerCoords, setPlayerCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let subscription: any = null;
+
+    const start = async () => {
+      try {
+        const enabled = await Location.hasServicesEnabledAsync();
+        if (!enabled) {
+          if (active) setLocationError('Włącz GPS, aby zobaczyć Inicjatywy w promieniu 500 m.');
+          return;
+        }
+
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (!permission.granted) {
+          if (active) setLocationError('Zezwól na lokalizację, aby zobaczyć Inicjatywy w promieniu 500 m.');
+          return;
+        }
+
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!active) return;
+
+        setPlayerCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude });
+        setLocationError(null);
+
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 10, timeInterval: 3000 },
+          (next) => {
+            if (!active) return;
+            setPlayerCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
+            setLocationError(null);
+          },
+        );
+      } catch {
+        if (active) setLocationError('Nie udało się ustalić lokalizacji.');
+      }
+    };
+
+    start();
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, []);
+
+  const nearbyInitiatives = useMemo(() => {
+    if (!playerCoords) return [];
+
+    return initiatives
+      .map((initiative) => {
+        const distance = distanceMeters(
+          playerCoords,
+          { latitude: initiative.latitude, longitude: initiative.longitude },
+        );
+        return {
+          ...initiative,
+          distance: `~${Math.round(distance)} m`,
+          actualDistanceMeters: distance,
+        };
+      })
+      .filter((initiative) => initiative.actualDistanceMeters <= INITIATIVES_LIST_RADIUS_METERS)
+      .sort((a, b) => a.actualDistanceMeters - b.actualDistanceMeters);
+  }, [initiatives, playerCoords]);
+
   return (
     <Shell active="initiatives" onNavigate={onNavigate}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>W POBLIŻU</Text>
+        <Text style={styles.eyebrow}>DO 500 M</Text>
         <Text style={styles.title}>Inicjatywy</Text>
-        <Text style={styles.subtitle}>Popieraj pomysły na miejscu. Jeden Gracz może oddać jeden Głos na każdą Inicjatywę.</Text>
+        <Text style={styles.subtitle}>Przeglądaj Inicjatywy w promieniu 500 m. Głos można oddać wyłącznie będąc maksymalnie 50 m od miejsca.</Text>
         <View style={styles.stats}>
-          <MiniStat label="Zbiera głosy" value={initiatives.filter((i) => i.status === 'collecting').length} />
-          <MiniStat label="Przeszły" value={initiatives.filter((i) => i.status === 'passed').length} />
+          <MiniStat label="Zbiera głosy" value={nearbyInitiatives.filter((i) => i.status === 'collecting').length} />
+          <MiniStat label="Przeszły" value={nearbyInitiatives.filter((i) => i.status === 'passed').length} />
         </View>
-        <View style={styles.list}>{initiatives.map((item) => <InitiativeRow item={item} key={item.id} onPress={() => onOpenInitiative(item)} />)}</View>
+
+        {locationError ? (
+          <View style={styles.rangeInfo}>
+            <Ionicons color={colors.warning} name="location-outline" size={19} />
+            <Text style={styles.rangeInfoText}>{locationError}</Text>
+          </View>
+        ) : nearbyInitiatives.length === 0 && playerCoords ? (
+          <View style={styles.rangeInfo}>
+            <Ionicons color={colors.signal} name="navigate-outline" size={19} />
+            <Text style={styles.rangeInfoText}>Brak Inicjatyw w promieniu 500 m.</Text>
+          </View>
+        ) : (
+          <View style={styles.list}>
+            {nearbyInitiatives.map((item) => (
+              <InitiativeRow
+                item={item}
+                key={item.id}
+                onPress={() => onOpenInitiative(item)}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
     </Shell>
   );
@@ -149,6 +254,18 @@ const styles = StyleSheet.create({
   eyebrow: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 1.1, marginTop: 8 }, title: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 30, marginTop: 4 }, subtitle: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 7 },
   stats: { flexDirection: 'row', gap: 10, marginTop: 18 }, stat: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 17, borderWidth: 1, flex: 1, padding: 14 }, statValue: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 22 }, statLabel: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, marginTop: 3, textAlign: 'center' },
   list: { gap: 12, marginTop: 18 },
+  rangeInfo: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: 18,
+    padding: 14,
+  },
+  rangeInfoText: { color: colors.muted, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 17 },
   wallet: { backgroundColor: colors.ink, borderRadius: 24, marginTop: 18, padding: 20, position: 'relative' }, walletLabel: { color: '#A997FF', fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 1 }, walletPoints: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 42, marginTop: 4 }, walletIcon: { alignItems: 'center', backgroundColor: colors.violet, borderRadius: 27, height: 54, justifyContent: 'center', position: 'absolute', right: 20, top: 20, width: 54 }, walletText: { color: '#C9D1DF', fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 12, paddingRight: 12 },
   rewardCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, padding: 16 }, rewardTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, rewardIcon: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 20, height: 44, justifyContent: 'center', width: 44 }, rewardTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 17, marginTop: 12 }, rewardDesc: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 4 }, sponsor: { color: colors.violet, fontFamily: fonts.bodyBold, fontSize: 10, marginTop: 10 }, rewardButton: { marginTop: 13, minHeight: 46 }, demo: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, marginTop: 16, textAlign: 'center' },
   profileCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 24, borderWidth: 1, marginTop: 18, padding: 24 }, avatar: { alignItems: 'center', backgroundColor: colors.violet, borderRadius: 38, height: 76, justifyContent: 'center', width: 76 }, avatarText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 29 }, profileName: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 22, marginBottom: 10, marginTop: 13 }, profileNumbers: { flexDirection: 'row', gap: 10, marginTop: 18, width: '100%' },
