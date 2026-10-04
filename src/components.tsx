@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fonts, shadow } from './theme';
 
@@ -65,7 +66,21 @@ export function StatusChip({ children, tone = 'blue', icon }) {
   );
 }
 
-export function BottomNav({ active, onSelect, onAdd }) {
+export function BottomNav({ active, onSelect, onAdd, addOpen = false }) {
+  const addRotation = useRef(new Animated.Value(addOpen ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(addRotation, {
+      toValue: addOpen ? 1 : 0,
+      duration: 170,
+      useNativeDriver: true,
+    }).start();
+  }, [addOpen, addRotation]);
+
+  const addRotate = addRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '45deg'],
+  });
   const items = [
     ['map', 'Mapa', 'map'],
     ['initiatives', 'Inicjatywy', 'location'],
@@ -92,8 +107,10 @@ export function BottomNav({ active, onSelect, onAdd }) {
           onPress={onAdd}
           style={({ pressed }) => [styles.navAddItem, pressed && styles.navAddItemPressed]}
         >
-          <View style={styles.navAddButton}>
-            <Ionicons color={colors.surface} name="add" size={27} />
+          <View style={[styles.navAddButton, addOpen && styles.navAddButtonOpen]}>
+            <Animated.View style={{ transform: [{ rotate: addRotate }] }}>
+              <Ionicons color={colors.surface} name="add" size={27} />
+            </Animated.View>
           </View>
         </Pressable>
       )}
@@ -160,6 +177,7 @@ const styles = StyleSheet.create({
     width: 44,
     ...shadow,
   },
+  navAddButtonOpen: { backgroundColor: colors.ink },
   navLabel: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 11 },
   navLabelActive: { color: colors.signal, fontFamily: fonts.bodyBold },
   initiativeRow: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 13, padding: 14, ...shadow },
