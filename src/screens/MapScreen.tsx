@@ -11,6 +11,22 @@ type CreateAction = 'incident' | 'initiative';
 
 const HOLD_MIN_MS = 260;
 const HOLD_FILL_MS = 720;
+const INITIATIVE_OPEN_RADIUS_METERS = 50;
+
+const distanceMeters = (
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number },
+) => {
+  const earthRadius = 6371000;
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const lat1 = toRadians(from.latitude);
+  const lat2 = toRadians(to.latitude);
+  const dLat = toRadians(to.latitude - from.latitude);
+  const dLng = toRadians(to.longitude - from.longitude);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
   const webView = useRef<any>(null);
@@ -29,6 +45,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const [filter, setFilter] = useState<'all' | 'collecting' | 'passed'>('all');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [heldAction, setHeldAction] = useState<CreateAction | null>(null);
+  const [proximityNotice, setProximityNotice] = useState<string | null>(null);
 
   const filtered = initiatives.filter((item) => filter === 'all' || item.status === filter);
   const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
@@ -104,7 +121,38 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const handleMessage = (event) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      if (message.type === 'initiative') setSelectedId(message.id);
+
+      if (message.type === 'initiative') {
+        const initiative = initiatives.find((item) => item.id === message.id);
+        if (!initiative) return;
+
+        setSelectedId(initiative.id);
+
+        const location = latestLocation.current;
+        if (!location?.coords) {
+          setProximityNotice('Włącz GPS, aby otworzyć tę Inicjatywę z mapy.');
+          return;
+        }
+
+        const distance = distanceMeters(
+          {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          },
+          {
+            latitude: initiative.latitude,
+            longitude: initiative.longitude,
+          },
+        );
+
+        if (distance <= INITIATIVE_OPEN_RADIUS_METERS) {
+          setProximityNotice(null);
+          onOpenInitiative(initiative);
+        } else {
+          setProximityNotice(`Podejdź bliżej — Inicjatywę otworzysz w promieniu 50 m. Teraz: ~${Math.round(distance)} m.`);
+        }
+      }
+
       if (message.type === 'anchor') setAnchored(Boolean(message.active));
     } catch {}
   };
@@ -250,6 +298,13 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           <View style={styles.locationIssue}>
             <Text style={styles.locationIssueText}>{locationIssue}</Text>
           </View>
+        )}
+
+        {proximityNotice && (
+          <Pressable onPress={() => setProximityNotice(null)} style={styles.proximityNotice}>
+            <Ionicons color={colors.deep} name="walk-outline" size={17} />
+            <Text style={styles.proximityNoticeText}>{proximityNotice}</Text>
+          </Pressable>
         )}
 
         {selected && (
@@ -458,6 +513,24 @@ const styles = StyleSheet.create({
   fabPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
   locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
   locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
+  proximityNotice: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(238,243,255,.98)',
+    borderColor: '#C9D7FF',
+    borderRadius: 18,
+    borderWidth: 1,
+    bottom: 82,
+    flexDirection: 'row',
+    gap: 8,
+    left: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    position: 'absolute',
+    right: 16,
+    zIndex: 18,
+    ...shadow,
+  },
+  proximityNoticeText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyBold, fontSize: 11, lineHeight: 15 },
   quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 12, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, ...shadow },
   quickMarker: { alignItems: 'center', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 },
   quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 18 },
