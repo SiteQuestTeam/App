@@ -1,397 +1,208 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { BottomNav, StatusChip } from '../components';
-import { initiatives, KRAKOW_CENTER } from '../data';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
 
-export function MapScreen({ onNavigate, onOpenInitiative, onCreate, role }) {
-  const webView = useRef(null);
-  const [selectedId, setSelectedId] = useState('garden');
+export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, player }) {
+  const webView = useRef<any>(null);
+  const latestLocation = useRef<any>(null);
+  const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
   const [mapError, setMapError] = useState(false);
+  const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [anchored, setAnchored] = useState(false);
-  const [locationIssue, setLocationIssue] = useState(null);
-  const latestLocation = useRef(null);
-  const acceptedLocation = useRef(null);
-  const latestHeading = useRef(0);
-  const appliedHeading = useRef(null);
-  const movementStopTimer = useRef(null);
-  const [query, setQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filter, setFilter] = useState('Wszystkie');
-  const html = useMemo(() => createMapHtml(initiatives, { center: KRAKOW_CENTER }), []);
+  const [filter, setFilter] = useState<'all' | 'collecting' | 'passed'>('all');
+
+  const filtered = initiatives.filter((item) => filter === 'all' || item.status === filter);
+  const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
+  const html = useMemo(() => createMapHtml(filtered), [htmlKey]);
   const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
 
   useEffect(() => {
     let active = true;
-    let locationSubscription = null;
-    let headingSubscription = null;
+    let subscription: any = null;
 
-    const distanceMeters = (from, to) => {
-      const earthRadius = 6371000;
-      const toRad = (value) => (value * Math.PI) / 180;
-      const dLat = toRad(to.coords.latitude - from.coords.latitude);
-      const dLng = toRad(to.coords.longitude - from.coords.longitude);
-      const lat1 = toRad(from.coords.latitude);
-      const lat2 = toRad(to.coords.latitude);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-      return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    };
-
-    const setMoving = (moving) => {
-      webView.current?.injectJavaScript(
-        `window.setPlayerMoving && window.setPlayerMoving(${moving ? 'true' : 'false'});true;`,
-      );
-    };
-
-    const markMovement = () => {
-      setMoving(true);
-      if (movementStopTimer.current) clearTimeout(movementStopTimer.current);
-      movementStopTimer.current = setTimeout(() => setMoving(false), 1600);
-    };
-
-    const pushLocationToMap = (location, centerMap = false) => {
-      latestLocation.current = location;
-      acceptedLocation.current = location;
-      webView.current?.injectJavaScript(
-        `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},${centerMap ? 'true' : 'false'});true;`,
-      );
-    };
-
-    const acceptMeaningfulMovement = (nextLocation) => {
-      const nextAccuracy = Number(nextLocation.coords.accuracy ?? Infinity);
-
-      // Accept only reasonably precise fixes. Android can still report ~50 m
-      // uncertainty for a precise permission, so 35 m was unnecessarily strict.
-      if (!Number.isFinite(nextAccuracy) || nextAccuracy > 50) return;
-
-      latestLocation.current = nextLocation;
-      const previous = acceptedLocation.current;
-      if (!previous) {
-        acceptedLocation.current = nextLocation;
-        pushLocationToMap(nextLocation, true);
-        return;
-      }
-
-      const accuracy = Math.max(
-        Number(previous.coords.accuracy ?? nextAccuracy),
-        nextAccuracy,
-      );
-
-      // Absorb GPS drift while standing still.
-      const deadZoneMeters = Math.max(3, Math.min(8, accuracy * 0.35));
-      const movedMeters = distanceMeters(previous, nextLocation);
-      if (movedMeters < deadZoneMeters) return;
-
-      acceptedLocation.current = nextLocation;
-      pushLocationToMap(nextLocation, false);
-      markMovement();
-    };
-
-    const pushHeadingToMap = (heading) => {
-      if (!Number.isFinite(heading)) return;
-      const normalized = ((heading % 360) + 360) % 360;
-      latestHeading.current = normalized;
-
-      const previous = appliedHeading.current;
-      if (previous !== null) {
-        const delta = Math.abs(((normalized - previous + 540) % 360) - 180);
-        if (delta < 12) return;
-      }
-
-      appliedHeading.current = normalized;
-      webView.current?.injectJavaScript(
-        `window.setPlayerHeading && window.setPlayerHeading(${normalized});true;`,
-      );
-    };
-
-    const startLocationTracking = async () => {
+    const start = async () => {
       try {
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
-        if (!servicesEnabled) {
-          if (active) setLocationIssue('services-off');
+        const enabled = await Location.hasServicesEnabledAsync();
+        if (!enabled) {
+          setLocationIssue('Wyłączony GPS');
           return;
         }
 
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!permission.granted) {
-          if (active) setLocationIssue('permission-denied');
+          setLocationIssue('Brak dostępu do GPS');
           return;
         }
 
-        const approximateOnly =
-          permission.android?.accuracy === 'coarse' ||
-          permission.ios?.accuracy === 'reduced';
+        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!active) return;
 
-        if (approximateOnly) {
-          // BestForNavigation cannot override an OS-level approximate-location grant.
-          if (active) setLocationIssue('approximate');
-        } else if (active) {
-          setLocationIssue(null);
-        }
-
-        // Fast-first bootstrap: use a recent cached/network fix immediately,
-        // then let the continuous watcher refine the avatar in the background.
-        const bootstrapLocation = (location) => {
-          if (!active || !location || acceptedLocation.current) return;
-          const accuracy = Number(location.coords.accuracy ?? Infinity);
-          if (!Number.isFinite(accuracy) || accuracy > 100) return;
-
-          latestLocation.current = location;
-          acceptedLocation.current = location;
-          pushLocationToMap(location, true);
-        };
-
-        const lastKnownPromise = Location.getLastKnownPositionAsync({
-          maxAge: 60000,
-          requiredAccuracy: 100,
-        });
-
-        locationSubscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            distanceInterval: 1,
-            timeInterval: 1000,
-            mayShowUserSettingsDialog: true,
-          },
-          (nextLocation) => {
-            if (!active) return;
-            acceptMeaningfulMovement(nextLocation);
-            if ((nextLocation.coords.accuracy ?? Infinity) <= 50 && !approximateOnly) {
-              setLocationIssue(null);
-            }
-          },
-          () => {
-            if (active) setLocationIssue('signal');
-          },
+        latestLocation.current = first;
+        setLocationIssue(null);
+        webView.current?.injectJavaScript(
+          'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
 
-        lastKnownPromise
-          .then((lastKnown) => bootstrapLocation(lastKnown))
-          .catch(() => {});
-
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        })
-          .then((quickFix) => bootstrapLocation(quickFix))
-          .catch(() => {});
-
-        headingSubscription = await Location.watchHeadingAsync(
-          (heading) => {
-            if (!active || heading.accuracy === 0) return;
-            const value = heading.trueHeading >= 0 ? heading.trueHeading : heading.magHeading;
-            pushHeadingToMap(value);
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, distanceInterval: 2, timeInterval: 1500 },
+          (next) => {
+            if (!active) return;
+            latestLocation.current = next;
+            webView.current?.injectJavaScript(
+              'window.movePlayer && window.movePlayer(' + next.coords.longitude + ',' + next.coords.latitude + ',false);true;',
+            );
           },
-          () => {},
         );
       } catch {
-        if (active) setLocationIssue('signal');
-        // Keep the last accepted avatar position when GPS is temporarily unavailable.
+        if (active) setLocationIssue('Brak sygnału GPS');
       }
     };
 
-    startLocationTracking();
+    start();
     return () => {
       active = false;
-      locationSubscription?.remove();
-      headingSubscription?.remove();
-      if (movementStopTimer.current) clearTimeout(movementStopTimer.current);
+      subscription?.remove();
     };
   }, []);
-  const searchResults = initiatives.filter((item) => {
-    const matchesText = `${item.title} ${item.address} ${item.district}`.toLocaleLowerCase('pl').includes(query.toLocaleLowerCase('pl'));
-    const matchesFilter = filter === 'Wszystkie' || item.type === filter;
-    return matchesText && matchesFilter;
-  });
-
-  const selectFromSearch = (item) => {
-    setSelectedId(item.id);
-    setQuery('');
-    webView.current?.injectJavaScript(`window.focusInitiative('${item.id}');true;`);
-  };
 
   const handleMessage = (event) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
       if (message.type === 'initiative') setSelectedId(message.id);
       if (message.type === 'anchor') setAnchored(Boolean(message.active));
-    } catch {
-      // Ignore messages that do not come from the map bridge.
-    }
+    } catch {}
   };
 
   return (
     <View style={styles.screen}>
-      {mapError ? (
-        <View style={styles.mapFallback}>
-          <Ionicons color={colors.signal} name="map" size={42} />
-          <Text style={styles.fallbackTitle}>Mapa jest chwilowo niedostępna</Text>
-          <Text style={styles.fallbackText}>Sprawdź połączenie z internetem. Pozostałe ekrany nadal działają.</Text>
-        </View>
-      ) : (
-        <WebView
-          ref={webView}
-          allowFileAccess={false}
-          javaScriptEnabled
-          onError={() => setMapError(true)}
-          onHttpError={() => setMapError(true)}
-          onMessage={handleMessage}
-          onLoadEnd={() => {
-            const location = latestLocation.current;
-            if (location) {
-              webView.current?.injectJavaScript(
-                `window.movePlayer && window.movePlayer(${location.coords.longitude},${location.coords.latitude},true);window.setPlayerHeading && window.setPlayerHeading(${latestHeading.current});true;`,
-              );
-            }
-          }}
-          originWhitelist={['*']}
-          renderLoading={() => <ActivityIndicator color={colors.signal} size="large" style={styles.loader} />}
-          source={{ html }}
-          startInLoadingState
-          style={styles.map}
-        />
-      )}
+      <View style={styles.mapArea}>
+        {mapError ? (
+          <View style={styles.fallback}>
+            <Ionicons color={colors.signal} name="map" size={42} />
+            <Text style={styles.fallbackTitle}>Mapa jest chwilowo niedostępna</Text>
+          </View>
+        ) : (
+          <WebView
+            ref={webView}
+            javaScriptEnabled
+            onError={() => setMapError(true)}
+            onHttpError={() => setMapError(true)}
+            onMessage={handleMessage}
+            onLoadEnd={() => {
+              const loc = latestLocation.current;
+              if (loc) {
+                webView.current?.injectJavaScript(
+                  'window.movePlayer && window.movePlayer(' + loc.coords.longitude + ',' + loc.coords.latitude + ',true);true;',
+                );
+              }
+            }}
+            originWhitelist={['*']}
+            renderLoading={() => <ActivityIndicator color={colors.signal} size="large" style={styles.loader} />}
+            source={{ html }}
+            startInLoadingState
+            style={styles.map}
+          />
+        )}
 
-      <View style={styles.topOverlay} pointerEvents="box-none">
-        <View style={styles.searchBar}>
-          <Ionicons color={colors.muted} name="search" size={20} />
-          <TextInput onChangeText={setQuery} placeholder="Szukaj ulicy lub działania" placeholderTextColor={colors.muted} style={styles.searchInput} value={query} />
-          <Pressable onPress={() => setShowFilters(!showFilters)} style={[styles.filterButton, showFilters && styles.filterButtonActive]}><Ionicons color={showFilters ? colors.surface : colors.ink} name="options" size={20} /></Pressable>
-        </View>
-        {showFilters && (
+        <View style={styles.top} pointerEvents="box-none">
+          <View style={styles.wallet}>
+            <View style={styles.walletDot} />
+            <Text style={styles.walletText}>{player.pointsBalance} PKT</Text>
+            <Text style={styles.rankText}>{player.rank}</Text>
+          </View>
+
           <View style={styles.filters}>
             {[
-              { value: 'Wszystkie', icon: null },
-              { value: 'Misja', icon: 'flag-outline' },
-              { value: 'Rajd', icon: 'people-outline' },
-              { value: 'Zwiad', icon: 'binoculars-outline' },
-            ].map(({ value, icon }) => {
-              const active = filter === value;
-              return (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  key={value}
-                  onPress={() => setFilter(value)}
-                  style={[styles.filterChip, active && styles.filterChipActive]}
-                >
-                  {icon && <Ionicons color={active ? colors.surface : colors.muted} name={icon} size={14} />}
-                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{value}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-        {query.length > 0 && (
-          <View style={styles.searchResults}>
-            {searchResults.length > 0 ? searchResults.slice(0, 3).map((item) => (
-              <Pressable key={item.id} onPress={() => selectFromSearch(item)} style={styles.searchResult}>
-                <View style={[styles.searchResultDot, { backgroundColor: item.color }]} />
-                <View style={styles.searchResultCopy}><Text numberOfLines={1} style={styles.searchResultTitle}>{item.title}</Text><Text style={styles.searchResultMeta}>{item.address} · {item.distance}</Text></View>
-                <Ionicons color={colors.muted} name="chevron-forward" size={18} />
+              ['all', 'Wszystkie'],
+              ['collecting', 'Zbiera głosy'],
+              ['passed', 'Przeszły'],
+            ].map(([value, label]) => (
+              <Pressable
+                key={value}
+                onPress={() => setFilter(value as 'all' | 'collecting' | 'passed')}
+                style={[styles.filter, filter === value && styles.filterActive]}
+              >
+                <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text>
               </Pressable>
-            )) : <Text style={styles.noResults}>Brak pasujących działań.</Text>}
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
+            style={[styles.roundAction, anchored && styles.roundActionActive]}
+          >
+            <Ionicons color={anchored ? colors.surface : colors.signal} name={locationIssue ? 'warning-outline' : 'locate'} size={22} />
+          </Pressable>
+
+          <Pressable onPress={onCreate} style={styles.createAction}>
+            <Ionicons color={colors.surface} name="camera" size={21} />
+            <Text style={styles.createText}>Nowa Inicjatywa</Text>
+          </Pressable>
+        </View>
+
+        {locationIssue && (
+          <View style={styles.locationIssue}>
+            <Text style={styles.locationIssueText}>{locationIssue}</Text>
           </View>
         )}
-        <View style={styles.overlayRow}>
-          <View style={styles.points}><View style={styles.pointsDot} /><Text style={styles.pointsText}>{role === 'ngo' ? 'KONTO NGO' : '860 PKT'}</Text></View>
-        </View>
+
+        {selected && (
+          <Pressable onPress={() => onOpenInitiative(selected)} style={styles.quickCard}>
+            <View style={[styles.quickMarker, { backgroundColor: selected.status === 'passed' ? colors.resolved : selected.color }]}>
+              <Text style={styles.quickMarkerText}>{selected.status === 'passed' ? '✓' : selected.votes}</Text>
+            </View>
+            <View style={styles.quickCopy}>
+              <StatusChip tone={selected.status === 'passed' ? 'green' : 'blue'}>
+                {selected.status === 'passed' ? 'Przeszła' : 'Zbiera głosy'}
+              </StatusChip>
+              <Text numberOfLines={2} style={styles.quickTitle}>{selected.brief.title}</Text>
+              <Text style={styles.quickMeta}>{selected.votes}/{selected.threshold} Głosów · {selected.distance}</Text>
+            </View>
+            <Ionicons color={colors.muted} name="chevron-forward" size={20} />
+          </Pressable>
+        )}
       </View>
 
-      <View style={styles.mapActions}>
-        <Pressable
-          accessibilityLabel="Wycentruj mapę na swojej pozycji"
-          onPress={() => webView.current?.injectJavaScript('window.focusPlayer && window.focusPlayer();true;')}
-          accessibilityHint={
-            locationIssue === 'approximate'
-              ? 'Włącz dokładną lokalizację w ustawieniach systemu.'
-              : locationIssue
-                ? 'Brak poprawnego sygnału lokalizacji.'
-                : anchored
-                  ? 'Śledzenie pozycji jest aktywne.'
-                  : 'Włącza śledzenie pozycji na mapie.'
-          }
-          style={[
-            styles.roundAction,
-            anchored && styles.roundActionActive,
-            locationIssue && styles.roundActionWarning,
-          ]}
-        >
-          <Ionicons
-            color={anchored && !locationIssue ? colors.surface : locationIssue ? '#B54708' : colors.signal}
-            name={locationIssue ? 'warning-outline' : 'locate'}
-            size={22}
-          />
-        </Pressable>
-      </View>
-
-      <Pressable onPress={() => onOpenInitiative(selected)} style={({ pressed }) => [styles.quickCard, pressed && styles.pressed]}>
-        <View style={[styles.quickMarker, { backgroundColor: selected.color }]}><Text style={styles.quickMarkerText}>{selected.marker}</Text></View>
-        <View style={styles.quickCopy}>
-          <View style={styles.quickTop}>
-            <StatusChip icon={selected.type === 'Rajd' ? 'people-outline' : selected.type === 'Zwiad' ? 'binoculars-outline' : 'flag-outline'} tone={selected.type === 'Rajd' ? 'violet' : selected.type === 'Zwiad' ? 'grey' : 'blue'}>{selected.type}</StatusChip>
-            <Text style={styles.quickDistance}>{selected.distance}</Text>
-          </View>
-          <Text numberOfLines={1} style={styles.quickTitle}>{selected.title}</Text>
-          <Text style={styles.quickMeta}>{selected.date} · {selected.people} osób</Text>
-        </View>
-        <Ionicons color={colors.signal} name="chevron-forward" size={22} />
-      </Pressable>
-
-      <Pressable accessibilityLabel="Dodaj inicjatywę" onPress={onCreate} style={({ pressed }) => [styles.fab, role === 'ngo' && styles.fabNgo, pressed && styles.pressed]}>
-        <Ionicons color={colors.surface} name="add" size={31} />
-      </Pressable>
-      <BottomNav active="map" onSelect={onNavigate} role={role} />
+      <BottomNav active="map" onSelect={onNavigate} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  map: { backgroundColor: '#E8EDF5', flex: 1 },
+  mapArea: { flex: 1, overflow: 'hidden' },
+  map: { flex: 1 },
   loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
-  mapFallback: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 40 },
-  fallbackTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 21, marginTop: 18, textAlign: 'center' },
-  fallbackText: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, marginTop: 8, textAlign: 'center' },
-  topOverlay: { left: 12, position: 'absolute', right: 12, top: 12, zIndex: 10 },
-  searchBar: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 9, minHeight: 54, paddingLeft: 16, paddingRight: 6, ...shadow },
-  searchInput: { color: colors.ink, flex: 1, fontFamily: fonts.body, fontSize: 14, height: 50 },
-  filterButton: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 14, height: 42, justifyContent: 'center', width: 42 },
-  filterButtonActive: { backgroundColor: colors.signal },
-  filters: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexWrap: 'nowrap', gap: 5, marginTop: 7, padding: 7, ...shadow },
-  filterChip: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 999, flexDirection: 'row', flexShrink: 1, gap: 5, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 8 },
-  filterChipActive: { backgroundColor: colors.signal },
-  filterChipText: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 10.5 },
-  filterChipTextActive: { color: colors.surface },
-  searchResults: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 16, borderWidth: 1, marginTop: 7, overflow: 'hidden', ...shadow },
-  searchResult: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, minHeight: 58, paddingHorizontal: 13 },
-  searchResultDot: { borderRadius: 7, height: 14, width: 14 },
-  searchResultCopy: { flex: 1 },
-  searchResultTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
-  searchResultMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
-  noResults: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, padding: 16, textAlign: 'center' },
-  overlayRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'flex-end', marginTop: 9 },
-  points: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 7, minHeight: 38, paddingHorizontal: 13, ...shadow },
-  pointsDot: { backgroundColor: colors.violet, borderRadius: 4, height: 8, width: 8 },
-  pointsText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.5 },
-  mapActions: { gap: 9, position: 'absolute', right: 14, top: 130, zIndex: 5 },
-  roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 23, borderWidth: 1, height: 46, justifyContent: 'center', width: 46, ...shadow },
-  roundActionActive: { backgroundColor: colors.signal, borderColor: colors.signal },
-  roundActionWarning: { backgroundColor: '#FFFAEB', borderColor: '#FEDF89' },
-  quickCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 88, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, zIndex: 5, ...shadow },
-  quickMarker: { alignItems: 'center', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
-  quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 17 },
+  fallback: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' },
+  fallbackTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 19, marginTop: 12 },
+  top: { left: 12, position: 'absolute', right: 12, top: 12 },
+  wallet: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,.95)', borderRadius: 999, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 9, ...shadow },
+  walletDot: { backgroundColor: colors.signal, borderRadius: 5, height: 10, width: 10 },
+  walletText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
+  rankText: { color: colors.muted, fontFamily: fonts.body, fontSize: 9 },
+  filters: { flexDirection: 'row', gap: 6, marginTop: 9 },
+  filter: { backgroundColor: 'rgba(255,255,255,.94)', borderColor: colors.border, borderRadius: 999, borderWidth: 1, paddingHorizontal: 11, paddingVertical: 8 },
+  filterActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  filterText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 10 },
+  filterTextActive: { color: colors.surface },
+  actions: { alignItems: 'flex-end', bottom: 146, gap: 9, position: 'absolute', right: 12 },
+  roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
+  roundActionActive: { backgroundColor: colors.signal },
+  createAction: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 999, flexDirection: 'row', gap: 7, paddingHorizontal: 14, paddingVertical: 12, ...shadow },
+  createText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 11 },
+  locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
+  locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
+  quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 12, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, ...shadow },
+  quickMarker: { alignItems: 'center', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 },
+  quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 18 },
   quickCopy: { flex: 1 },
-  quickTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  quickDistance: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11 },
-  quickTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 16, marginTop: 6 },
-  quickMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 3 },
-  fab: { alignItems: 'center', backgroundColor: colors.signal, borderColor: colors.surface, borderRadius: 31, borderWidth: 5, bottom: 62, height: 62, justifyContent: 'center', left: '50%', marginLeft: -31, position: 'absolute', width: 62, zIndex: 6, ...shadow },
-  fabNgo: { backgroundColor: colors.violet },
-  pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
+  quickTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 14, lineHeight: 18, marginTop: 5 },
+  quickMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, marginTop: 3 },
 });
