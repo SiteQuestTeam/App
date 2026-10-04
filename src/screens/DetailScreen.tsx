@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { colors, fonts, shadow } from '../theme';
+import { voteActionState } from '../initiative-vote-state';
 
 const SWIPE_THRESHOLD = 92;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -106,6 +107,7 @@ function VotingInitiativeCard({
   const position = useRef(new Animated.ValueXY()).current;
   const [showFullDetails, setShowFullDetails] = useState(false);
   const [gestureMessage, setGestureMessage] = useState<string | null>(null);
+  const voteState = voteActionState(Boolean(initiative.hasVoted));
 
   const resetCard = () => {
     Animated.spring(position, {
@@ -217,7 +219,7 @@ function VotingInitiativeCard({
 
       <View style={styles.tinderStage}>
         <Animated.View
-          {...panResponder.panHandlers}
+          {...(voteState.showActions ? panResponder.panHandlers : {})}
           style={[
             styles.tinderCard,
             {
@@ -229,15 +231,19 @@ function VotingInitiativeCard({
             },
           ]}
         >
-          <Animated.View pointerEvents="none" style={[styles.swipeBadge, styles.swipeBadgeReject, { opacity: rejectOpacity }]}>
-            <Ionicons color={colors.error} name="close" size={26} />
-            <Text style={[styles.swipeBadgeText, styles.swipeBadgeTextReject]}>POMIŃ</Text>
-          </Animated.View>
+          {voteState.showActions && (
+            <>
+              <Animated.View pointerEvents="none" style={[styles.swipeBadge, styles.swipeBadgeReject, { opacity: rejectOpacity }]}>
+                <Ionicons color={colors.error} name="close" size={26} />
+                <Text style={[styles.swipeBadgeText, styles.swipeBadgeTextReject]}>POMIŃ</Text>
+              </Animated.View>
 
-          <Animated.View pointerEvents="none" style={[styles.swipeBadge, styles.swipeBadgeApprove, { opacity: approveOpacity }]}>
-            <Ionicons color={colors.resolved} name="heart" size={24} />
-            <Text style={[styles.swipeBadgeText, styles.swipeBadgeTextApprove]}>GŁOS</Text>
-          </Animated.View>
+              <Animated.View pointerEvents="none" style={[styles.swipeBadge, styles.swipeBadgeApprove, { opacity: approveOpacity }]}>
+                <Ionicons color={colors.resolved} name="heart" size={24} />
+                <Text style={[styles.swipeBadgeText, styles.swipeBadgeTextApprove]}>GŁOS</Text>
+              </Animated.View>
+            </>
+          )}
 
           <Pressable
             accessibilityHint="Otwiera pełne szczegóły inicjatywy"
@@ -300,37 +306,41 @@ function VotingInitiativeCard({
           </View>
         )}
 
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityLabel="Pomiń inicjatywę"
-            accessibilityRole="button"
-            onPress={dismissLeft}
-            style={({ pressed }) => [styles.actionBubble, styles.rejectBubble, pressed && styles.actionBubblePressed]}
-          >
-            <Ionicons color={colors.error} name="close" size={28} />
-          </Pressable>
+        {voteState.showActions ? (
+          <>
+            <View style={styles.actionRow}>
+              <Pressable
+                accessibilityLabel="Pomiń inicjatywę"
+                accessibilityRole="button"
+                onPress={dismissLeft}
+                style={({ pressed }) => [styles.actionBubble, styles.rejectBubble, pressed && styles.actionBubblePressed]}
+              >
+                <Ionicons color={colors.error} name="close" size={28} />
+              </Pressable>
 
-          <Pressable
-            accessibilityLabel="Oddaj Głos"
-            accessibilityRole="button"
-            disabled={checking || initiative.hasVoted}
-            onPress={() => void approve()}
-            style={({ pressed }) => [
-              styles.actionBubble,
-              styles.approveBubble,
-              (checking || initiative.hasVoted) && styles.actionBubbleDisabled,
-              pressed && styles.actionBubblePressed,
-            ]}
-          >
-            {checking ? (
-              <Text style={styles.checkingText}>GPS</Text>
-            ) : (
-              <Ionicons color={colors.resolved} name={initiative.hasVoted ? 'checkmark' : 'heart'} size={27} />
-            )}
-          </Pressable>
-        </View>
-
-        <Text style={styles.swipeHint}>W lewo pomijasz · w prawo oddajesz Głos</Text>
+              <Pressable
+                accessibilityLabel="Oddaj Głos"
+                accessibilityRole="button"
+                disabled={checking}
+                onPress={() => void approve()}
+                style={({ pressed }) => [
+                  styles.actionBubble,
+                  styles.approveBubble,
+                  checking && styles.actionBubbleDisabled,
+                  pressed && styles.actionBubblePressed,
+                ]}
+              >
+                {checking ? <Text style={styles.checkingText}>GPS</Text> : <Ionicons color={colors.resolved} name="heart" size={27} />}
+              </Pressable>
+            </View>
+            <Text style={styles.swipeHint}>W lewo pomijasz · w prawo oddajesz Głos</Text>
+          </>
+        ) : (
+          <View style={styles.votedMessage}>
+            <Ionicons color={colors.resolved} name="checkmark-circle" size={20} />
+            <Text style={styles.votedMessageText}>{voteState.message}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -742,6 +752,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   gestureMessageText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 10, lineHeight: 14 },
+  votedMessage: { alignItems: 'center', backgroundColor: colors.mintSoft, borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 14, paddingVertical: 10 },
+  votedMessageText: { color: colors.deep, fontFamily: fonts.bodyBold, fontSize: 12 },
 
   pressed: { opacity: 0.78 },
   collapseButton: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 14 },
