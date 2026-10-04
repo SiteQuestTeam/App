@@ -102,7 +102,6 @@ export interface KckPreparationInput {
 export interface KckSubmitResponse {
   status: 'SUBMITTED';
   incidentId: string | null;
-  mock: boolean;
   photoUrl: string;
   pointsGranted: number;
   pointsGrantedAt: string | null;

@@ -42,7 +42,7 @@ const prepared: KckPrepareResponse = {
 };
 
 const submitted: KckSubmitResponse = {
-  status: 'SUBMITTED', incidentId: 'KCK-1', mock: true, photoUrl: '/kck/incidents/draft-1/photo', pointsGranted: 30, pointsGrantedAt: '2026-10-04T00:00:00.000Z',
+  status: 'SUBMITTED', incidentId: 'KCK-1', photoUrl: '/kck/incidents/draft-1/photo', pointsGranted: 30, pointsGrantedAt: '2026-10-04T00:00:00.000Z',
 };
 
 const interested: KckInterestResponse = {
