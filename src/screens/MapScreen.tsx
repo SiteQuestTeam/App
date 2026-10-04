@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -7,9 +7,6 @@ import { BottomNav, StatusChip } from '../components';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
 
-type CreateAction = 'incident' | 'initiative';
-
-const HOLD_FILL_MS = 620;
 const INITIATIVE_OPEN_RADIUS_METERS = 50;
 
 const distanceMeters = (
@@ -31,11 +28,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
-  const incidentHold = useRef(new Animated.Value(0)).current;
-  const initiativeHold = useRef(new Animated.Value(0)).current;
-  const activeHold = useRef<CreateAction | null>(null);
-  const holdCompleted = useRef(false);
-  const holdAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
   const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
   const [mapError, setMapError] = useState(false);
@@ -43,7 +35,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const [anchored, setAnchored] = useState(false);
   const [filter, setFilter] = useState<'all' | 'collecting' | 'passed'>('all');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const [heldAction, setHeldAction] = useState<CreateAction | null>(null);
   const [proximityNotice, setProximityNotice] = useState<string | null>(null);
 
   const filtered = initiatives.filter((item) => filter === 'all' || item.status === filter);
@@ -60,13 +51,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       mass: 0.82,
     }).start();
 
-    if (!createMenuOpen) {
-      activeHold.current = null;
-      setHeldAction(null);
-      incidentHold.setValue(0);
-      initiativeHold.setValue(0);
-    }
-  }, [createMenuOpen, createMenuProgress, incidentHold, initiativeHold]);
+  }, [createMenuOpen, createMenuProgress]);
 
   useEffect(() => {
     let active = true;
@@ -155,77 +140,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       if (message.type === 'anchor') setAnchored(Boolean(message.active));
     } catch {}
   };
-
-  const resetHold = (action: CreateAction) => {
-    const value = action === 'incident' ? incidentHold : initiativeHold;
-    Animated.timing(value, {
-      toValue: 0,
-      duration: 150,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  };
-
-  const beginHold = (action: CreateAction) => {
-    holdAnimation.current?.stop();
-    activeHold.current = action;
-    holdCompleted.current = false;
-    setHeldAction(action);
-
-    const activeValue = action === 'incident' ? incidentHold : initiativeHold;
-    const inactiveValue = action === 'incident' ? initiativeHold : incidentHold;
-    inactiveValue.setValue(0);
-    activeValue.setValue(0);
-
-    holdAnimation.current = Animated.timing(activeValue, {
-      toValue: 1,
-      duration: HOLD_FILL_MS,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: false,
-    });
-    holdAnimation.current.start(({ finished }) => {
-      if (finished && activeHold.current === action) {
-        holdCompleted.current = true;
-      }
-    });
-  };
-
-  const finishHold = (action: CreateAction) => {
-    if (activeHold.current !== action) return;
-
-    holdAnimation.current?.stop();
-    const canOpen = holdCompleted.current;
-    activeHold.current = null;
-    holdCompleted.current = false;
-    setHeldAction(null);
-
-    if (!canOpen) {
-      resetHold(action);
-      return;
-    }
-
-    setCreateMenuOpen(false);
-    if (action === 'incident') onCreateIncident?.();
-    else onCreate();
-  };
-
-  const cancelHold = (action: CreateAction) => {
-    if (activeHold.current !== action) return;
-    holdAnimation.current?.stop();
-    activeHold.current = null;
-    holdCompleted.current = false;
-    setHeldAction(null);
-    resetHold(action);
-  };
-
-  const incidentFillWidth = incidentHold.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-  const initiativeFillWidth = initiativeHold.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
 
   return (
     <View style={styles.screen}>
@@ -324,112 +238,53 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       <Animated.View
         pointerEvents={createMenuOpen ? 'auto' : 'none'}
         style={[
-          styles.actionMenu,
+          styles.createChoices,
           {
             opacity: createMenuProgress,
             transform: [
-              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
-              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
+              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
             ],
           },
         ]}
       >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.actionBridge,
-            {
-              opacity: createMenuProgress,
-              transform: [
-                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) },
-              ],
-            },
-          ]}
+        <Pressable
+          accessibilityLabel="Zgłoś usterkę"
+          accessibilityRole="button"
+          onPress={() => {
+            setCreateMenuOpen(false);
+            onCreateIncident?.();
+          }}
+          style={({ pressed }) => [styles.createChoice, pressed && styles.createChoicePressed]}
         >
-          <View style={styles.actionBridgeCore} />
-          <View style={styles.actionBridgeLeft} />
-          <View style={styles.actionBridgeRight} />
-        </Animated.View>
+          {({ pressed }) => (
+            <>
+              <View style={[styles.createChoiceIcon, pressed && styles.createChoiceIconPressed]}>
+                <Ionicons color={pressed ? colors.surface : colors.signal} name="construct-outline" size={20} />
+              </View>
+              <Text style={[styles.createChoiceText, pressed && styles.createChoiceTextPressed]}>Zgłoś usterkę</Text>
+            </>
+          )}
+        </Pressable>
 
-        <Animated.View
-          style={[
-            styles.actionItemWrap,
-            styles.actionItemLeftWrap,
-            {
-              transform: [
-                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [88, 0] }) },
-                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
-              ],
-            },
-          ]}
+        <Pressable
+          accessibilityLabel="Zgłoś inicjatywę"
+          accessibilityRole="button"
+          onPress={() => {
+            setCreateMenuOpen(false);
+            onCreate();
+          }}
+          style={({ pressed }) => [styles.createChoice, pressed && styles.createChoicePressed]}
         >
-          <Pressable
-            accessibilityHint="Przytrzymaj do pełnego wypełnienia i puść, aby otworzyć formularz"
-            accessibilityLabel="Zgłoś usterkę"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPressIn={() => beginHold('incident')}
-            onPressOut={() => finishHold('incident')}
-            onTouchCancel={() => cancelHold('incident')}
-            style={({ pressed }) => [styles.actionItem, styles.actionItemLeft, pressed && styles.actionItemPressed]}
-          >
-            <Animated.View style={[styles.actionFill, styles.actionFillLeft, { width: incidentFillWidth }]} />
-            <View style={[styles.actionIcon, heldAction === 'incident' && styles.actionIconHeld]}>
-              <Ionicons
-                color={heldAction === 'incident' ? colors.surface : colors.signal}
-                name="construct-outline"
-                size={19}
-              />
-            </View>
-            <Text
-              numberOfLines={2}
-              style={[styles.actionLabel, heldAction === 'incident' && styles.actionLabelHeld]}
-            >
-              Zgłoś usterkę
-            </Text>
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.actionItemWrap,
-            styles.actionItemRightWrap,
-            {
-              transform: [
-                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [-88, 0] }) },
-                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-                { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
-              ],
-            },
-          ]}
-        >
-          <Pressable
-            accessibilityHint="Przytrzymaj do pełnego wypełnienia i puść, aby otworzyć formularz"
-            accessibilityLabel="Zgłoś inicjatywę"
-            accessibilityRole="button"
-            hitSlop={10}
-            onPressIn={() => beginHold('initiative')}
-            onPressOut={() => finishHold('initiative')}
-            onTouchCancel={() => cancelHold('initiative')}
-            style={({ pressed }) => [styles.actionItem, styles.actionItemRight, pressed && styles.actionItemPressed]}
-          >
-            <Animated.View style={[styles.actionFill, styles.actionFillRight, { width: initiativeFillWidth }]} />
-            <View style={[styles.actionIcon, heldAction === 'initiative' && styles.actionIconHeld]}>
-              <Ionicons
-                color={heldAction === 'initiative' ? colors.surface : colors.signal}
-                name="bulb-outline"
-                size={19}
-              />
-            </View>
-            <Text
-              numberOfLines={2}
-              style={[styles.actionLabel, heldAction === 'initiative' && styles.actionLabelHeld]}
-            >
-              Zgłoś inicjatywę
-            </Text>
-          </Pressable>
-        </Animated.View>
+          {({ pressed }) => (
+            <>
+              <View style={[styles.createChoiceIcon, pressed && styles.createChoiceIconPressed]}>
+                <Ionicons color={pressed ? colors.surface : colors.signal} name="bulb-outline" size={20} />
+              </View>
+              <Text style={[styles.createChoiceText, pressed && styles.createChoiceTextPressed]}>Zgłoś inicjatywę</Text>
+            </>
+          )}
+        </Pressable>
       </Animated.View>
 
       <Pressable
@@ -475,137 +330,52 @@ const styles = StyleSheet.create({
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
   roundActionActive: { backgroundColor: colors.signal },
 
-  actionMenu: {
-    bottom: 101,
-    height: 98,
-    left: 10,
+  createChoices: {
+    bottom: 132,
+    flexDirection: 'row',
+    gap: 10,
+    left: 14,
     position: 'absolute',
-    right: 10,
+    right: 14,
     zIndex: 19,
   },
-  actionBridge: {
-    bottom: -4,
-    height: 58,
-    left: '50%',
-    marginLeft: -82,
-    position: 'absolute',
-    width: 164,
-  },
-  actionBridgeCore: {
-    backgroundColor: colors.surface,
-    borderRadius: 42,
-    bottom: -18,
-    height: 76,
-    left: '50%',
-    marginLeft: -38,
-    position: 'absolute',
-    width: 76,
-    ...shadow,
-  },
-  actionBridgeLeft: {
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 10,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    bottom: 12,
-    height: 34,
-    left: 7,
-    position: 'absolute',
-    transform: [{ rotate: '-16deg' }],
-    width: 78,
-  },
-  actionBridgeRight: {
-    backgroundColor: colors.surface,
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 28,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    bottom: 12,
-    height: 34,
-    position: 'absolute',
-    right: 7,
-    transform: [{ rotate: '16deg' }],
-    width: 78,
-  },
-  actionItemWrap: {
-    height: 64,
-    position: 'absolute',
-    top: 2,
-    width: '44%',
-    zIndex: 2,
-  },
-  actionItemLeftWrap: { left: 4 },
-  actionItemRightWrap: { right: 4 },
-  actionItem: {
+  createChoice: {
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderColor: 'rgba(221,227,234,.9)',
+    borderColor: colors.border,
+    borderRadius: 24,
     borderWidth: 1,
+    flex: 1,
     flexDirection: 'row',
     gap: 9,
-    height: 62,
-    overflow: 'hidden',
-    paddingHorizontal: 13,
-    width: '100%',
+    justifyContent: 'center',
+    minHeight: 56,
+    paddingHorizontal: 12,
     ...shadow,
   },
-  actionItemLeft: {
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 14,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  actionItemRight: {
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 30,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-  },
-  actionItemPressed: {
+  createChoicePressed: {
+    backgroundColor: colors.signal,
+    borderColor: colors.signal,
     transform: [{ scale: 0.985 }],
   },
-  actionFill: {
-    backgroundColor: colors.signal,
-    bottom: 0,
-    position: 'absolute',
-    top: 0,
-  },
-  actionFillLeft: {
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 14,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    right: 0,
-  },
-  actionFillRight: {
-    borderBottomLeftRadius: 14,
-    borderBottomRightRadius: 30,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    left: 0,
-  },
-  actionIcon: {
+  createChoiceIcon: {
     alignItems: 'center',
     backgroundColor: colors.blueSoft,
-    borderRadius: 18,
-    height: 36,
+    borderRadius: 17,
+    height: 34,
     justifyContent: 'center',
-    width: 36,
-    zIndex: 2,
+    width: 34,
   },
-  actionIconHeld: {
+  createChoiceIconPressed: {
     backgroundColor: 'rgba(255,255,255,.18)',
   },
-  actionLabel: {
+  createChoiceText: {
     color: colors.ink,
-    flex: 1,
     fontFamily: fonts.bodyBold,
     fontSize: 11,
     lineHeight: 14,
-    zIndex: 2,
   },
-  actionLabelHeld: {
+  createChoiceTextPressed: {
     color: colors.surface,
   },
 
