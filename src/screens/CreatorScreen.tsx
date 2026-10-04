@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { aiStep1, aiStep2 } from '../api';
 import type { AiInitiativeBrief } from '../api';
+import { needsInitiativeDescription } from '../initiative-analysis';
 import { colors, fonts } from '../theme';
 import type { Fixer, Initiative } from '../types';
 
@@ -25,6 +26,8 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [answers, setAnswers] = useState<AiAnswer[]>([]);
+  const [proposal, setProposal] = useState('');
+  const [awaitingProposal, setAwaitingProposal] = useState(Boolean(photoUri));
   const [questions, setQuestions] = useState<AiQuestion[]>([]);
   const [categoryHint, setCategoryHint] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -48,8 +51,9 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
     setStep(2);
     setQuestions([]);
     setAnswers([]);
+    setProposal('');
     setQuestionIndex(0);
-    void analyzePhoto();
+    setAwaitingProposal(true);
   }, [photoUri]);
 
   const locate = async () => {
@@ -98,7 +102,7 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
     try {
       const response = await aiStep2(photoUri, {
         kategoria: categoryHint,
-        linia_gracza: '',
+        linia_gracza: proposal.trim(),
         odpowiedzi: collectedAnswers,
         pytanie_zwrotne_juz_zadane: returnQuestionAsked,
         odpowiedz_na_pytanie_zwrotne: returnQuestionAnswer,
@@ -133,21 +137,31 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
 
   const analyzePhoto = async () => {
     if (!photoUri) return;
+    const line = proposal.trim();
+    if (!line) {
+      setAwaitingProposal(true);
+      return;
+    }
     setAiLoading(true);
     setAiError(null);
+    setAwaitingProposal(false);
     try {
       const location = await locate();
       setAddressForAi(location.address);
       if (location.address) setPlace(location.address);
 
       const response = await aiStep1(photoUri, {
-        linia_gracza: '',
+        linia_gracza: line,
         adres: location.address,
         dzielnica: '',
         zgloszenia_w_poblizu: [],
         ostatnie_briefy_gracza: [],
       });
       const result = response?.wynik;
+      if (needsInitiativeDescription(result?.status)) {
+        setAwaitingProposal(true);
+        return;
+      }
       if (!result || result.status !== 'ok') {
         throw new Error(result?.message || result?.retake_reason || 'AI nie zaakceptowało zdjęcia.');
       }
@@ -266,6 +280,26 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
               <Text style={styles.aiLabel}>BOGDAN · AI</Text>
               <Text style={styles.aiText}>Analizuję zdjęcie i przygotowuję pytania…</Text>
             </View>
+          ) : null}
+
+          {awaitingProposal && !aiLoading && !currentQuestion ? (
+            <>
+              <View style={styles.aiBubble}>
+                <Text style={styles.aiLabel}>BOGDAN · AI</Text>
+                <Text style={styles.aiText}>Co chcesz zmienić w tym miejscu?</Text>
+              </View>
+              <TextInput
+                multiline
+                onChangeText={setProposal}
+                placeholder="Np. stojak na rowery przy wejściu"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, styles.answerInput]}
+                value={proposal}
+              />
+              <PrimaryButton disabled={!proposal.trim()} icon="arrow-forward" onPress={() => void analyzePhoto()} style={styles.next}>
+                Przeanalizuj pomysł
+              </PrimaryButton>
+            </>
           ) : null}
 
           {currentQuestion ? (
