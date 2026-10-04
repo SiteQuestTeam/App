@@ -13,6 +13,7 @@ import { PermissionGateScreen } from './src/screens/PermissionGateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { BACKGROUND_REFRESH_MS } from './src/background-refresh';
+import { captureVoteLocation } from './src/vote-location-snapshot';
 import {
   createInitiative,
   createSession,
@@ -42,6 +43,7 @@ export default function App() {
   const [accessReady, setAccessReady] = useState(false);
   const lastKnownLocationRef = useRef<Location.LocationObject | null>(null);
   const [playerLocation, setPlayerLocation] = useState<Location.LocationObject | null>(null);
+  const [votingLocation, setVotingLocation] = useState<Location.LocationObject | null>(null);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('');
@@ -221,12 +223,15 @@ export default function App() {
   };
 
   const openInitiative = (initiative: Initiative) => {
+    setVotingLocation(captureVoteLocation(lastKnownLocationRef.current || playerLocation));
     setSelectedId(initiative.id);
     setScreen('detail');
   };
 
   const vote = async (id: string) => {
-    const coordinates = currentCoordinates();
+    const coordinates = votingLocation?.coords
+      ? { latitude: votingLocation.coords.latitude, longitude: votingLocation.coords.longitude }
+      : currentCoordinates();
     if (!player.id || !coordinates) {
       Alert.alert('Brak GPS', 'Nie można oddać Głosu bez aktualnej lokalizacji.');
       return;
@@ -343,9 +348,12 @@ export default function App() {
         return selected ? (
           <DetailScreen
             initiative={selected}
-            onBack={() => navigateTo('map')}
+            onBack={() => {
+              setVotingLocation(null);
+              navigateTo('map');
+            }}
             onVote={() => void vote(selected.id)}
-            playerLocation={playerLocation}
+            playerLocation={votingLocation}
           />
         ) : null;
       case 'creator':

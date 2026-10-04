@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "web:build": "expo export --platform web --output-dir dist",
     "test:multipart": "node --test tests/multipart-upload.test.mjs",
-    "test:contracts": "node --test tests/initiative-analysis.test.mjs tests/kck-preparation-layout.test.mjs tests/multipart-upload.test.mjs tests/keyboard-scroll.test.mjs tests/background-refresh.test.mjs tests/initiative-vote-state.test.mjs"
+    "test:contracts": "node --test tests/initiative-analysis.test.mjs tests/kck-preparation-layout.test.mjs tests/multipart-upload.test.mjs tests/keyboard-scroll.test.mjs tests/background-refresh.test.mjs tests/initiative-vote-state.test.mjs tests/vote-location-snapshot.test.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

@@ -17,8 +17,6 @@ import { voteActionState } from '../initiative-vote-state';
 
 const SWIPE_THRESHOLD = 92;
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const MAX_VOTE_LOCATION_AGE_MS = 5000;
-
 function distanceMeters(a, b) {
   const R = 6371000;
   const toRad = (v) => (v * Math.PI) / 180;
@@ -70,9 +68,6 @@ export function DetailScreen({ initiative, onBack, onVote, playerLocation }) {
         setLocationError(false);
         try {
           if (!playerLocation?.coords) throw new Error('missing-location');
-
-          const age = Date.now() - playerLocation.timestamp;
-          if (age > MAX_VOTE_LOCATION_AGE_MS) throw new Error('stale-location');
 
           const meters = distanceMeters(
             {
