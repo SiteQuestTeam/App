@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { IconButton, PrimaryButton } from '../components';
 import { colors, fonts } from '../theme';
@@ -8,6 +8,7 @@ export function CameraScreen({ onBack, onCapture }) {
   const cameraRef = useRef<any>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [capturing, setCapturing] = useState(false);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
 
   if (!permission) {
     return <View style={styles.messageScreen}><ActivityIndicator color={colors.signal} size="large" /><Text style={styles.body}>Sprawdzanie dostępu do aparatu…</Text></View>;
@@ -31,11 +32,42 @@ export function CameraScreen({ onBack, onCapture }) {
     try {
       setCapturing(true);
       const result = await cameraRef.current.takePictureAsync({ quality: 0.75, skipProcessing: false });
-      if (result?.uri) onCapture(result.uri);
+      if (result?.uri) setCapturedUri(result.uri);
     } finally {
       setCapturing(false);
     }
   };
+
+  if (capturedUri) {
+    return (
+      <View style={styles.previewScreen}>
+        <Image source={{ uri: capturedUri }} resizeMode="cover" style={styles.previewImage} />
+        <View style={styles.previewOverlay}>
+          <View>
+            <Text style={styles.previewEyebrow}>POTWIERDŹ ZDJĘCIE</Text>
+            <Text style={styles.previewTitle}>Czy zdjęcie jest wyraźne?</Text>
+            <Text style={styles.previewHint}>Sprawdź, czy dobrze widać zgłaszany problem.</Text>
+          </View>
+          <View style={styles.previewActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setCapturedUri(null)}
+              style={styles.retakeButton}
+            >
+              <Text style={styles.retakeButtonText}>Zrób ponownie</Text>
+            </Pressable>
+            <PrimaryButton
+              icon="checkmark"
+              onPress={() => onCapture(capturedUri)}
+              style={styles.confirmButton}
+            >
+              Użyj zdjęcia
+            </PrimaryButton>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -55,6 +87,41 @@ export function CameraScreen({ onBack, onCapture }) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#000', flex: 1 },
+  previewScreen: { backgroundColor: '#000', flex: 1 },
+  previewImage: { height: '100%', width: '100%' },
+  previewOverlay: {
+    backgroundColor: 'rgba(16,24,40,.88)',
+    bottom: 0,
+    gap: 20,
+    left: 0,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    position: 'absolute',
+    right: 0,
+  },
+  previewEyebrow: {
+    color: colors.signal,
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  previewTitle: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 24 },
+  previewHint: { color: 'rgba(255,255,255,.72)', fontFamily: fonts.body, fontSize: 13, lineHeight: 19, marginTop: 6 },
+  previewActions: { flexDirection: 'row', gap: 12 },
+  retakeButton: {
+    alignItems: 'center',
+    borderColor: 'rgba(255,255,255,.45)',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  retakeButtonText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 14 },
+  confirmButton: { flex: 1, marginTop: 0 },
   camera: { flex: 1 },
   back: { left: 16, position: 'absolute', top: 16 },
   backStandalone: { left: 16, position: 'absolute', top: 16 },
