@@ -1,78 +1,58 @@
 # SiteQuest App
 
-Klikalny frontend aplikacji mobilnej SiteQuest zbudowany w Expo / React Native i TypeScript.
+Mobilny frontend MVP SiteQuest zbudowany w Expo / React Native i TypeScript.
 
-## Frontend MVP
+## Aktualny mock MVP
 
-- start bezpośrednio na mapie 3D zgodnej z identyfikacją „Urban Signal”,
-- mapa MapLibre oparta na danych OpenStreetMap, z perspektywą 3D,
-- kreskówkowy awatar bobra SiteQuest w stylu 3D, GPS i ręczne przemieszczanie po mapie,
-- przykładowe inicjatywy, szczegóły i dołączanie do ekipy,
-- trzyetapowy kreator inicjatywy,
-- widoki Odkrywaj, Ekipa, Profil i Panel NGO,
-- demonstracyjne przełączanie roli Gracz / NGO bez logowania,
-- aparat do wykonywania Zdjęć na żywo.
+Aplikacja implementuje lokalnie pełną ścieżkę demonstracyjną z aktualnego `Project-context-`:
 
-Mapa pobiera styl i kafelki przez internet. Pozostałe ekrany używają lokalnych danych demonstracyjnych i nie wymagają backendu.
+- logowanie wyłącznie pseudonimem, bez hasła,
+- mapa MapLibre / OpenStreetMap z Awatarem bobra w pozycji GPS,
+- wizualny promień około 50 m wokół Awatara,
+- pinezki Inicjatyw ze statusem `Zbiera głosy` / `Przeszła`,
+- demo HackYeah: „Stoisko z gorącą herbatą na HackYeah 2026” przy TAURON Arenie z 9/10 Głosami,
+- ekran szczegółów z pełnym Briefem i Progiem,
+- Głos możliwy na miejscu; demo herbaty pozwala pokazać przejście 9/10 → 10/10,
+- Punkty, Ranga i Nagrody,
+- Zdjęcie na żywo wyłącznie aparatem aplikacji,
+- mock rozmowy AI z maksymalnie 3 pytaniami,
+- edytowalny Brief przed publikacją,
+- dwa pytania tak/nie ustalające „Kto naprawi”,
+- publikacja nowej Inicjatywy z lokalnym stanem i pozycją GPS.
 
-## Local setup on Windows
+Backend nie jest jeszcze wymagany do przejścia demo. Stan, Punkty, Głosy, AI i Nagrody są mockowane lokalnie. Docelowo reguły Punktów, Głosów, progu 50 m i wydawania Nagród muszą być liczone i walidowane przez backend.
 
-Requirements: Node.js 22.20.0 or compatible supported LTS, npm, Android Studio
-with Android SDK, platform-tools, emulator and an Android system image.
-Android Studio's bundled JDK can be used as JAVA_HOME.
+## Stack
+
+- Expo 57
+- React Native
+- TypeScript
+- expo-location
+- expo-camera
+- react-native-webview
+- MapLibre GL + OpenFreeMap / OpenStreetMap
+- Three.js wewnątrz widoku mapy
+
+## Uruchomienie
 
 ```powershell
 git clone https://github.com/SiteQuestTeam/App.git
 cd App
 npm.cmd ci
-$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
-$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
-$env:NODE_OPTIONS = '--dns-result-order=ipv4first'
+npm.cmd start
+```
+
+Na Androidzie można użyć Expo Go albo lokalnego builda:
+
+```powershell
 npm.cmd run android -- --localhost
 ```
 
-Start an Android virtual device in Android Studio's Device Manager first.
-The local test device is SiteQuest_API36 (Pixel 7, API 36, Google APIs x86_64).
-Expo CLI installs Expo Go on the emulator and starts Metro on port 8081.
-For a physical Android device, use `npm.cmd start` and scan the QR code in
-Expo Go; the computer and device must be on the same network.
-
-For a USB-connected Android device with USB debugging enabled and Expo Go
-installed, start Metro in one terminal:
+## Weryfikacja
 
 ```powershell
-$env:NODE_OPTIONS = '--dns-result-order=ipv4first'
-npm.cmd start -- --localhost --port 8082
-```
-
-Then open the app in another terminal:
-
-```powershell
-$sitequestAdb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-& $sitequestAdb reverse tcp:8082 tcp:8082
-& $sitequestAdb shell am start -a android.intent.action.VIEW -d exp://127.0.0.1:8082
-```
-
-If multiple Android devices are connected, add `-s DEVICE_SERIAL` before
-each adb command. Keep Metro running while using the app.
-
-Use `npm.cmd` and `npx.cmd` if PowerShell blocks npm.ps1 scripts.
-These environment variables apply to the current terminal session.
-
-## Verification
-
-```powershell
+npx.cmd tsc --noEmit
 npx.cmd expo install --check
 ```
 
-Confirm that Hello World is visible on the emulator without a runtime error.
-This workflow runs JavaScript in Expo Go; it does not verify a standalone APK
-or an iOS build. The iOS simulator requires macOS and Xcode.
-
-Pending dependency work is documented in `SETUP-ISSUES.md`.
-
-Verified on 2026-10-03 on a physical Samsung SM-A566B through USB and Expo Go.
-Hello World was visible in both the Android UI hierarchy and a screenshot;
-the sampled ReactNativeJS / AndroidRuntime error log was empty. Metro is
-available at http://127.0.0.1:8082. The offline dependency check passed using
-Expo's bundled version data; it did not validate against the online registry.
+Po zmianach MVP wymagany jest jeszcze smoke test na fizycznym urządzeniu/emulatorze: aparat, GPS, WebView/Three.js, głosowanie i pełna ścieżka Zdjęcie → AI → Brief → publikacja.
