@@ -266,12 +266,22 @@ function VotingInitiativeCard({
 
               {!expanded ? (
                 <Pressable
+                  accessibilityHint="Pokazuje pełny Brief inicjatywy"
+                  accessibilityLabel="Więcej informacji o inicjatywie"
+                  accessibilityRole="button"
                   onPress={() => setExpanded(true)}
-                  style={({ pressed }) => [styles.pullMore, pressed && styles.pressed]}
+                  style={({ pressed }) => [styles.pullMore, pressed && styles.pullMorePressed]}
                 >
-                  <View style={styles.pullHandle} />
-                  <Ionicons color={colors.muted} name="chevron-down" size={17} />
-                  <Text style={styles.pullMoreText}>Przeciągnij w dół, aby zobaczyć więcej</Text>
+                  <View style={styles.pullMoreIcon}>
+                    <Ionicons color={colors.signal} name="document-text-outline" size={18} />
+                  </View>
+                  <View style={styles.pullMoreCopy}>
+                    <Text style={styles.pullMoreTitle}>Więcej informacji</Text>
+                    <Text style={styles.pullMoreText}>Dotknij lub przeciągnij kartę w dół</Text>
+                  </View>
+                  <View style={styles.pullMoreChevron}>
+                    <Ionicons color={colors.signal} name="chevron-down" size={18} />
+                  </View>
                 </Pressable>
               ) : (
                 <View style={styles.expandedContent}>
@@ -563,9 +573,39 @@ const styles = StyleSheet.create({
   progress: { backgroundColor: colors.border, borderRadius: 99, height: 8, marginTop: 13, overflow: 'hidden' },
   progressFill: { borderRadius: 99, height: '100%' },
 
-  pullMore: { alignItems: 'center', marginTop: 14, paddingBottom: 2, paddingTop: 5 },
-  pullHandle: { backgroundColor: colors.border, borderRadius: 99, height: 4, marginBottom: 5, width: 42 },
+  pullMore: {
+    alignItems: 'center',
+    backgroundColor: colors.blueSoft,
+    borderColor: colors.signal + '24',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 11,
+    marginTop: 16,
+    minHeight: 62,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  pullMorePressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+  pullMoreIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  pullMoreCopy: { flex: 1 },
+  pullMoreTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
   pullMoreText: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 10, marginTop: 2 },
+  pullMoreChevron: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
   expandedContent: { paddingTop: 3 },
   expandedDivider: { backgroundColor: colors.border, height: StyleSheet.hairlineWidth, marginBottom: 2, marginTop: 13 },
 
