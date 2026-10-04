@@ -7,6 +7,7 @@ import { MapScreen } from './src/screens/MapScreen';
 import { DetailScreen } from './src/screens/DetailScreen';
 import { CreatorScreen } from './src/screens/CreatorScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
+import { IncidentScreen } from './src/screens/IncidentScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { initiatives as initialInitiatives } from './src/data';
@@ -79,7 +80,16 @@ export default function App() {
       case 'signin':
         return <SignInScreen nickname={player.nickname} onContinue={(nickname) => { setPlayer((p) => ({ ...p, nickname })); setScreen('map'); }} />;
       case 'map':
-        return <MapScreen initiatives={initiatives} onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} player={player} />;
+        return (
+          <MapScreen
+            initiatives={initiatives}
+            onCreate={() => setScreen('creator')}
+            onCreateIncident={() => setScreen('incident')}
+            onNavigate={setScreen}
+            onOpenInitiative={openInitiative}
+            player={player}
+          />
+        );
       case 'initiatives':
         return <InitiativesScreen initiatives={initiatives} onNavigate={setScreen} onOpenInitiative={openInitiative} />;
       case 'rewards':
@@ -90,6 +100,8 @@ export default function App() {
         return <DetailScreen initiative={selected} onBack={() => setScreen('map')} onVote={() => vote(selected.id)} />;
       case 'creator':
         return <CreatorScreen photoUri={photoUri} onCamera={() => setScreen('camera')} onClose={() => setScreen('map')} onPublish={publishInitiative} />;
+      case 'incident':
+        return <IncidentScreen onBack={() => setScreen('map')} />;
       case 'camera':
         return <CameraScreen onBack={() => setScreen('creator')} onCapture={(uri) => { setPhotoUri(uri); setScreen('creator'); }} />;
       default:
