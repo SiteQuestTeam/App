@@ -9,8 +9,7 @@ import { colors, fonts, shadow } from '../theme';
 
 type CreateAction = 'incident' | 'initiative';
 
-const HOLD_MIN_MS = 260;
-const HOLD_FILL_MS = 720;
+const HOLD_FILL_MS = 620;
 const INITIATIVE_OPEN_RADIUS_METERS = 50;
 
 const distanceMeters = (
@@ -35,7 +34,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const incidentHold = useRef(new Animated.Value(0)).current;
   const initiativeHold = useRef(new Animated.Value(0)).current;
   const activeHold = useRef<CreateAction | null>(null);
-  const holdStartedAt = useRef(0);
+  const holdCompleted = useRef(false);
   const holdAnimation = useRef<Animated.CompositeAnimation | null>(null);
 
   const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
@@ -170,7 +169,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const beginHold = (action: CreateAction) => {
     holdAnimation.current?.stop();
     activeHold.current = action;
-    holdStartedAt.current = Date.now();
+    holdCompleted.current = false;
     setHeldAction(action);
 
     const activeValue = action === 'incident' ? incidentHold : initiativeHold;
@@ -181,42 +180,40 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     holdAnimation.current = Animated.timing(activeValue, {
       toValue: 1,
       duration: HOLD_FILL_MS,
-      easing: Easing.out(Easing.cubic),
+      easing: Easing.inOut(Easing.cubic),
       useNativeDriver: false,
     });
-    holdAnimation.current.start();
+    holdAnimation.current.start(({ finished }) => {
+      if (finished && activeHold.current === action) {
+        holdCompleted.current = true;
+      }
+    });
   };
 
   const finishHold = (action: CreateAction) => {
     if (activeHold.current !== action) return;
 
     holdAnimation.current?.stop();
-    const heldFor = Date.now() - holdStartedAt.current;
+    const canOpen = holdCompleted.current;
     activeHold.current = null;
+    holdCompleted.current = false;
     setHeldAction(null);
 
-    if (heldFor < HOLD_MIN_MS) {
+    if (!canOpen) {
       resetHold(action);
       return;
     }
 
-    const value = action === 'incident' ? incidentHold : initiativeHold;
-    Animated.timing(value, {
-      toValue: 1,
-      duration: 90,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start(() => {
-      setCreateMenuOpen(false);
-      if (action === 'incident') onCreateIncident?.();
-      else onCreate();
-    });
+    setCreateMenuOpen(false);
+    if (action === 'incident') onCreateIncident?.();
+    else onCreate();
   };
 
   const cancelHold = (action: CreateAction) => {
     if (activeHold.current !== action) return;
     holdAnimation.current?.stop();
     activeHold.current = null;
+    holdCompleted.current = false;
     setHeldAction(null);
     resetHold(action);
   };
@@ -327,50 +324,111 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       <Animated.View
         pointerEvents={createMenuOpen ? 'auto' : 'none'}
         style={[
-          styles.createCluster,
+          styles.fluidMenu,
           {
             opacity: createMenuProgress,
             transform: [
-              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
-              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) },
+              { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [0.72, 1] }) },
             ],
           },
         ]}
       >
-        <View pointerEvents="none" style={styles.connectorLayer}>
-          <View style={styles.leftCurve} />
-          <View style={styles.rightCurve} />
-          <View style={styles.connectorStem} />
-          <View style={styles.connectorNode} />
+        <View pointerEvents="none" style={styles.fluidCore}>
+          <View style={styles.fluidCoreHalo} />
+          <View style={styles.fluidNeck} />
         </View>
 
-        <Pressable
-          accessibilityHint="Przytrzymaj, następnie puść aby otworzyć formularz"
-          accessibilityLabel="Zgłoś usterkę"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPressIn={() => beginHold('incident')}
-          onPressOut={() => finishHold('incident')}
-          onTouchCancel={() => cancelHold('incident')}
-          style={({ pressed }) => [styles.createPill, pressed && styles.createPillPressed]}
+        <Animated.View
+          style={[
+            styles.fluidBranchWrap,
+            styles.fluidBranchLeftWrap,
+            {
+              transform: [
+                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [58, 0] }) },
+                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+                { rotate: '-4deg' },
+              ],
+            },
+          ]}
         >
-          <Animated.View style={[styles.createPillFill, { width: incidentFillWidth }]} />
-          <Text numberOfLines={1} style={[styles.createPillText, heldAction === 'incident' && styles.createPillTextHeld]}>Zgłoś usterkę</Text>
-        </Pressable>
+          <Pressable
+            accessibilityHint="Przytrzymaj do pełnego wypełnienia i puść, aby otworzyć formularz"
+            accessibilityLabel="Zgłoś usterkę"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPressIn={() => beginHold('incident')}
+            onPressOut={() => finishHold('incident')}
+            onTouchCancel={() => cancelHold('incident')}
+            style={({ pressed }) => [styles.fluidBranch, styles.fluidBranchLeft, pressed && styles.fluidBranchPressed]}
+          >
+            <Animated.View
+              style={[
+                styles.fluidFill,
+                styles.fluidFillLeft,
+                { width: incidentFillWidth },
+              ]}
+            />
+            <View style={styles.fluidLabelRow}>
+              <Ionicons color={colors.surface} name="construct-outline" size={16} />
+              <Text numberOfLines={1} style={styles.fluidLabel}>Zgłoś usterkę</Text>
+            </View>
+          </Pressable>
+        </Animated.View>
 
-        <Pressable
-          accessibilityHint="Przytrzymaj, następnie puść aby otworzyć formularz"
-          accessibilityLabel="Zgłoś inicjatywę"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPressIn={() => beginHold('initiative')}
-          onPressOut={() => finishHold('initiative')}
-          onTouchCancel={() => cancelHold('initiative')}
-          style={({ pressed }) => [styles.createPill, pressed && styles.createPillPressed]}
+        <Animated.View
+          style={[
+            styles.fluidBranchWrap,
+            styles.fluidBranchRightWrap,
+            {
+              transform: [
+                { translateX: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [-58, 0] }) },
+                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) },
+                { rotate: '4deg' },
+              ],
+            },
+          ]}
         >
-          <Animated.View style={[styles.createPillFill, { width: initiativeFillWidth }]} />
-          <Text numberOfLines={1} style={[styles.createPillText, heldAction === 'initiative' && styles.createPillTextHeld]}>Zgłoś inicjatywę</Text>
-        </Pressable>
+          <Pressable
+            accessibilityHint="Przytrzymaj do pełnego wypełnienia i puść, aby otworzyć formularz"
+            accessibilityLabel="Zgłoś inicjatywę"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPressIn={() => beginHold('initiative')}
+            onPressOut={() => finishHold('initiative')}
+            onTouchCancel={() => cancelHold('initiative')}
+            style={({ pressed }) => [styles.fluidBranch, styles.fluidBranchRight, pressed && styles.fluidBranchPressed]}
+          >
+            <Animated.View
+              style={[
+                styles.fluidFill,
+                styles.fluidFillRight,
+                { width: initiativeFillWidth },
+              ]}
+            />
+            <View style={styles.fluidLabelRow}>
+              <Text numberOfLines={1} style={styles.fluidLabel}>Zgłoś inicjatywę</Text>
+              <Ionicons color={colors.surface} name="sparkles-outline" size={16} />
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.fluidHint,
+            {
+              opacity: heldAction ? 1 : createMenuProgress,
+              transform: [
+                { translateY: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [4, 0] }) },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.fluidHintText}>
+            {heldAction ? 'Trzymaj… i puść po wypełnieniu' : 'Przytrzymaj wybór'}
+          </Text>
+        </Animated.View>
       </Animated.View>
 
       <Pressable
@@ -410,106 +468,126 @@ const styles = StyleSheet.create({
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
   roundActionActive: { backgroundColor: colors.signal },
 
-  createCluster: {
-    bottom: 137,
-    flexDirection: 'row',
-    gap: 40,
-    justifyContent: 'center',
-    left: 14,
+  fluidMenu: {
+    bottom: 116,
+    height: 138,
+    left: 8,
     position: 'absolute',
-    right: 14,
+    right: 8,
     zIndex: 19,
   },
-  connectorLayer: {
-    bottom: -42,
-    height: 54,
-    left: '50%',
-    marginLeft: -100,
-    position: 'absolute',
-    width: 200,
-  },
-  leftCurve: {
-    borderBottomColor: colors.signal,
-    borderBottomLeftRadius: 34,
-    borderBottomWidth: 3,
-    borderLeftColor: colors.signal,
-    borderLeftWidth: 3,
-    bottom: 12,
-    height: 34,
-    left: 0,
-    position: 'absolute',
-    width: 96,
-  },
-  rightCurve: {
-    borderBottomColor: colors.signal,
-    borderBottomRightRadius: 34,
-    borderBottomWidth: 3,
-    borderRightColor: colors.signal,
-    borderRightWidth: 3,
-    bottom: 12,
-    height: 34,
-    position: 'absolute',
-    right: 0,
-    width: 96,
-  },
-  connectorStem: {
-    backgroundColor: colors.signal,
-    bottom: 0,
-    height: 18,
-    left: '50%',
-    marginLeft: -1.5,
-    position: 'absolute',
-    width: 3,
-  },
-  connectorNode: {
-    backgroundColor: colors.signal,
-    borderColor: colors.surface,
-    borderRadius: 5,
-    borderWidth: 2,
-    bottom: 10,
-    height: 10,
-    left: '50%',
-    marginLeft: -5,
-    position: 'absolute',
-    width: 10,
-  },
-  createPill: {
+  fluidCore: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,.98)',
-    borderColor: colors.border,
-    borderRadius: 27,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    maxWidth: 170,
-    minHeight: 54,
-    overflow: 'hidden',
-    paddingHorizontal: 12,
+    bottom: -8,
+    height: 96,
+    left: '50%',
+    marginLeft: -76,
+    position: 'absolute',
+    width: 152,
+  },
+  fluidCoreHalo: {
+    backgroundColor: colors.ink,
+    borderTopLeftRadius: 82,
+    borderTopRightRadius: 82,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    bottom: 0,
+    height: 76,
+    position: 'absolute',
+    width: 132,
     ...shadow,
   },
-  createPillPressed: {
-    transform: [{ scale: 0.985 }],
+  fluidNeck: {
+    backgroundColor: colors.ink,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    bottom: -18,
+    height: 52,
+    position: 'absolute',
+    width: 66,
   },
-  createPillFill: {
+  fluidBranchWrap: {
+    height: 78,
+    position: 'absolute',
+    top: 10,
+    width: '47%',
+  },
+  fluidBranchLeftWrap: { left: 4 },
+  fluidBranchRightWrap: { right: 4 },
+  fluidBranch: {
+    alignItems: 'center',
+    backgroundColor: colors.ink,
+    height: 70,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    paddingHorizontal: 18,
+    width: '100%',
+    ...shadow,
+  },
+  fluidBranchLeft: {
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 54,
+    borderBottomLeftRadius: 42,
+    borderBottomRightRadius: 16,
+  },
+  fluidBranchRight: {
+    borderTopLeftRadius: 54,
+    borderTopRightRadius: 42,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 42,
+  },
+  fluidBranchPressed: {
+    opacity: 0.98,
+  },
+  fluidFill: {
     backgroundColor: colors.signal,
     bottom: 0,
-    left: 0,
     position: 'absolute',
     top: 0,
   },
-  createPillText: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    letterSpacing: -0.15,
+  fluidFillLeft: {
+    borderTopLeftRadius: 42,
+    borderTopRightRadius: 54,
+    borderBottomLeftRadius: 42,
+    borderBottomRightRadius: 16,
+    right: 0,
   },
-  createPillTextHeld: {
+  fluidFillRight: {
+    borderTopLeftRadius: 54,
+    borderTopRightRadius: 42,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 42,
+    left: 0,
+  },
+  fluidLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  fluidLabel: {
     color: colors.surface,
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: -0.18,
+  },
+  fluidHint: {
+    alignItems: 'center',
+    bottom: 1,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  fluidHintText: {
+    color: colors.muted,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 9,
+    letterSpacing: 0.1,
   },
 
   fab: { alignItems: 'center', backgroundColor: colors.signal, borderColor: colors.surface, borderRadius: 31, borderWidth: 5, bottom: 62, height: 62, justifyContent: 'center', left: '50%', marginLeft: -31, position: 'absolute', width: 62, zIndex: 20, ...shadow },
-  fabOpen: { backgroundColor: colors.deep },
+  fabOpen: { backgroundColor: colors.ink, borderColor: colors.ink },
   fabPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
   locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
   locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
