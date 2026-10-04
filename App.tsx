@@ -19,6 +19,8 @@ export default function App() {
   const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('tea');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
+  const [incidentPhotoUri, setIncidentPhotoUri] = useState<string | undefined>();
+  const [cameraTarget, setCameraTarget] = useState<'initiative' | 'incident'>('initiative');
   const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
   const [player, setPlayer] = useState<PlayerState>({
     nickname: 'Gracz Demo',
@@ -99,11 +101,46 @@ export default function App() {
       case 'detail':
         return <DetailScreen initiative={selected} onBack={() => setScreen('map')} onVote={() => vote(selected.id)} />;
       case 'creator':
-        return <CreatorScreen photoUri={photoUri} onCamera={() => setScreen('camera')} onClose={() => setScreen('map')} onPublish={publishInitiative} />;
+        return (
+          <CreatorScreen
+            photoUri={photoUri}
+            onCamera={() => {
+              setCameraTarget('initiative');
+              setScreen('camera');
+            }}
+            onClose={() => setScreen('map')}
+            onPublish={publishInitiative}
+          />
+        );
       case 'incident':
-        return <IncidentScreen onBack={() => setScreen('map')} />;
+        return (
+          <IncidentScreen
+            photoUri={incidentPhotoUri}
+            onBack={() => {
+              setIncidentPhotoUri(undefined);
+              setScreen('map');
+            }}
+            onCamera={() => {
+              setCameraTarget('incident');
+              setScreen('camera');
+            }}
+          />
+        );
       case 'camera':
-        return <CameraScreen onBack={() => setScreen('creator')} onCapture={(uri) => { setPhotoUri(uri); setScreen('creator'); }} />;
+        return (
+          <CameraScreen
+            onBack={() => setScreen(cameraTarget === 'incident' ? 'incident' : 'creator')}
+            onCapture={(uri) => {
+              if (cameraTarget === 'incident') {
+                setIncidentPhotoUri(uri);
+                setScreen('incident');
+              } else {
+                setPhotoUri(uri);
+                setScreen('creator');
+              }
+            }}
+          />
+        );
       default:
         return null;
     }
