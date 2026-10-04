@@ -266,19 +266,21 @@ function VotingInitiativeCard({
                 </Text>
               </View>
 
+              <View style={styles.cardMoreHint}>
+                <Text style={styles.cardMoreHintText}>Kliknij, aby dowiedzieć się więcej</Text>
+                <Ionicons color={colors.muted} name="chevron-forward" size={14} />
+              </View>
             </View>
           </Pressable>
         </Animated.View>
       </View>
 
       <View style={styles.tinderFooter}>
-        {gestureMessage ? (
+        {gestureMessage && (
           <View style={styles.gestureMessage}>
             <Ionicons color={colors.signal} name="information-circle-outline" size={17} />
             <Text style={styles.gestureMessageText}>{gestureMessage}</Text>
           </View>
-        ) : (
-          <Text style={styles.swipeHint}>W lewo pomijasz · w prawo oddajesz Głos</Text>
         )}
 
         <View style={styles.actionRow}>
@@ -310,6 +312,8 @@ function VotingInitiativeCard({
             )}
           </Pressable>
         </View>
+
+        <Text style={styles.swipeHint}>W lewo pomijasz · w prawo oddajesz Głos</Text>
       </View>
     </View>
   );
@@ -636,6 +640,15 @@ const styles = StyleSheet.create({
   },
   solutionLabel: { color: colors.resolved, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7 },
   solutionPreview: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17, marginTop: 5 },
+  cardMoreHint: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingTop: 2,
+  },
+  cardMoreHintText: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 10 },
   voteSummary: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, marginTop: 17 },
   voteSummaryLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 },
   voteSummaryCount: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 24, marginTop: 1 },
@@ -699,7 +712,7 @@ const styles = StyleSheet.create({
   checkingText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
 
   tinderFooter: { paddingBottom: 8, paddingHorizontal: 16, paddingTop: 4 },
-  swipeHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 9, marginBottom: 5, textAlign: 'center' },
+  swipeHint: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 9, marginTop: 6, textAlign: 'center' },
   gestureMessage: {
     alignItems: 'center',
     backgroundColor: colors.blueSoft,
