@@ -19,7 +19,7 @@ import type { KckCategory, KckIncidentDraft } from '../types';
 
 const CATEGORIES: Array<{ value: KckCategory; label: string; icon: string }> = [
   { value: 'DAMAGE', label: 'Uszkodzenia', icon: 'construct-outline' },
-  { value: 'POLLUTION', label: 'Zanieczyszczenia', icon: 'trash-outline' },
+  { value: 'POLLUTION', label: 'Zanieczyszczenia i odory', icon: 'trash-outline' },
   { value: 'GREENERY', label: 'Zieleń', icon: 'leaf-outline' },
   { value: 'ANIMALS', label: 'Zwierzęta', icon: 'paw-outline' },
   { value: 'OTHER', label: 'Pozostałe', icon: 'ellipsis-horizontal' },
@@ -140,7 +140,7 @@ export function IncidentScreen({
 
     try {
       if (!onSubmit) {
-        setSubmissionError('Formularz jest kompletny. Wysłanie wymaga podpięcia endpointu /kck/submit.');
+        setSubmissionError('Formularz jest kompletny, ale wysyłka do KCK nie jest jeszcze podpięta w tej wersji aplikacji.');
         return;
       }
 
