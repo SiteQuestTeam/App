@@ -96,6 +96,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     let playerAnchored = false;
     let targetMapBearing = -24;
     let displayedBeaverRotation = Math.PI + 24 * Math.PI / 180;
+    let targetBeaverRotation = displayedBeaverRotation;
     let lastAppliedMapBearing = -24;
     let userInteractingWithMap = false;
     let headingResumeAt = 0;
@@ -113,6 +114,18 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         + Math.cos(lat1) * Math.cos(lat2)
         * Math.sin(dLng / 2) * Math.sin(dLng / 2);
       return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function geographicBearingDegrees(fromLng, fromLat, toLng, toLat) {
+      const toRadians = (value) => value * Math.PI / 180;
+      const toDegrees = (value) => value * 180 / Math.PI;
+      const fromLatRad = toRadians(fromLat);
+      const toLatRad = toRadians(toLat);
+      const dLng = toRadians(toLng - fromLng);
+      const y = Math.sin(dLng) * Math.cos(toLatRad);
+      const x = Math.cos(fromLatRad) * Math.sin(toLatRad)
+        - Math.sin(fromLatRad) * Math.cos(toLatRad) * Math.cos(dLng);
+      return (toDegrees(Math.atan2(y, x)) + 360) % 360;
     }
 
     function getPlayerElevation() {
@@ -729,30 +742,32 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         }
 
         const time = performance.now() * 0.001;
-        const stride = Math.sin(time * 9.2);
-        const trotLift = Math.abs(Math.sin(time * 9.2));
+        const walkCycle = time * 6.2;
+        const stride = Math.sin(walkCycle);
+        const trotLift = Math.abs(Math.sin(walkCycle));
 
-        // Avatar direction is driven by the phone heading, independently of anchor mode.
-        // Map bearing only changes the camera. After unanchoring, the beaver still keeps
-        // pointing in the direction the user is holding the phone.
-        const desiredBeaverRotation = Math.PI - targetMapBearing * Math.PI / 180;
+        // The avatar faces the direction in which its GPS position is actually moving.
+        // Camera bearing remains independent so panning/anchoring never changes the walk direction.
+        const desiredBeaverRotation = targetBeaverRotation;
         const beaverRotationDelta = Math.atan2(
           Math.sin(desiredBeaverRotation - displayedBeaverRotation),
           Math.cos(desiredBeaverRotation - displayedBeaverRotation),
         );
-        displayedBeaverRotation += beaverRotationDelta * 0.16;
+        displayedBeaverRotation += beaverRotationDelta * (playerIsMoving ? 0.12 : 0.08);
         this.beaver.rotation.y = displayedBeaverRotation;
 
         if (playerIsMoving) {
-          this.beaver.position.y = 0.025 + trotLift * 0.075;
-          this.beaver.userData.trotParts.leftArm.rotation.z = -0.32 + stride * 0.14;
-          this.beaver.userData.trotParts.rightArm.rotation.z = 0.32 - stride * 0.14;
-          this.beaver.userData.trotParts.leftFoot.position.z = 0.04 + stride * 0.09;
-          this.beaver.userData.trotParts.rightFoot.position.z = 0.04 - stride * 0.09;
-          this.beaver.userData.trotParts.leftFoot.rotation.x = stride * 0.34;
-          this.beaver.userData.trotParts.rightFoot.rotation.x = -stride * 0.34;
+          this.beaver.position.y = 0.022 + trotLift * 0.052;
+          this.beaver.rotation.z = stride * 0.018;
+          this.beaver.userData.trotParts.leftArm.rotation.z = -0.32 + stride * 0.11;
+          this.beaver.userData.trotParts.rightArm.rotation.z = 0.32 - stride * 0.11;
+          this.beaver.userData.trotParts.leftFoot.position.z = 0.04 + stride * 0.072;
+          this.beaver.userData.trotParts.rightFoot.position.z = 0.04 - stride * 0.072;
+          this.beaver.userData.trotParts.leftFoot.rotation.x = stride * 0.27;
+          this.beaver.userData.trotParts.rightFoot.rotation.x = -stride * 0.27;
         } else {
           this.beaver.position.y = 0.018 + Math.sin(time * 2.2) * 0.012;
+          this.beaver.rotation.z *= 0.84;
           this.beaver.userData.trotParts.leftArm.rotation.z += (-0.32 - this.beaver.userData.trotParts.leftArm.rotation.z) * 0.16;
           this.beaver.userData.trotParts.rightArm.rotation.z += (0.32 - this.beaver.userData.trotParts.rightArm.rotation.z) * 0.16;
           this.beaver.userData.trotParts.leftFoot.position.z += (0.04 - this.beaver.userData.trotParts.leftFoot.position.z) * 0.18;
@@ -882,6 +897,16 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         ? Infinity
         : geographicDistanceMeters(previousPosition[0], previousPosition[1], lng, lat);
 
+      if (!isFirstFix && distance >= 0.6) {
+        const movementBearing = geographicBearingDegrees(
+          previousPosition[0],
+          previousPosition[1],
+          lng,
+          lat,
+        );
+        targetBeaverRotation = Math.PI - movementBearing * Math.PI / 180;
+      }
+
       playerPosition = [lng, lat];
       playerHasFix = true;
       playerVisualsVisible = true;
@@ -889,7 +914,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       if (isFirstFix || distance > 500) {
         updatePlayerTransform(lng, lat, true);
       } else {
-        const walkDuration = Math.min(4200, Math.max(650, 650 + distance * 7));
+        const walkDuration = Math.min(9000, Math.max(1150, 1150 + distance * 16));
         updatePlayerTransform(lng, lat, false, walkDuration);
       }
 
