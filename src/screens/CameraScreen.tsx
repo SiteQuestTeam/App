@@ -44,7 +44,7 @@ export function CameraScreen({ onBack, onCapture }) {
       <View style={styles.liveBadge}><View style={styles.liveDot} /><Text style={styles.liveText}>ZDJĘCIE NA ŻYWO</Text></View>
       <View style={styles.guide} />
       <View style={styles.cameraBottom}>
-        <Text style={styles.cameraHint}>Zdjęcie trafi bezpośrednio do mockowego asystenta AI</Text>
+        <Text style={styles.cameraHint}>Zdjęcie zostanie użyte do przygotowania zgłoszenia</Text>
         <Pressable accessibilityRole="button" disabled={capturing} onPress={takePhoto} style={styles.shutter}>
           {capturing ? <ActivityIndicator color={colors.surface} /> : <View style={styles.shutterInner} />}
         </Pressable>
