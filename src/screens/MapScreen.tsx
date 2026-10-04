@@ -24,7 +24,7 @@ const distanceMeters = (
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
+export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, onLoadingChange, player }) {
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
@@ -119,6 +119,10 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   }, []);
 
   const bootLoading = !locationUnavailable && (!mapReady || !locationReady);
+
+  useEffect(() => {
+    onLoadingChange?.(bootLoading);
+  }, [bootLoading, onLoadingChange]);
 
   const handleMessage = (event) => {
     try {
@@ -333,32 +337,12 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       </Pressable>
 
       <BottomNav active="map" onSelect={onNavigate} />
-
-      {bootLoading && (
-        <View style={styles.mapBootOverlay}>
-          <ActivityIndicator color={colors.signal} size="large" />
-          <Text style={styles.mapBootText}>Ładowanie mapy…</Text>
-        </View>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  mapBootOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    zIndex: 40,
-  },
-  mapBootText: {
-    color: colors.muted,
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    marginTop: 10,
-  },
   mapArea: { flex: 1, overflow: 'hidden' },
   map: { flex: 1 },
   loader: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
