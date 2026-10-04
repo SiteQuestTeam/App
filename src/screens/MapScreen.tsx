@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { BottomNav, StatusChip } from '../components';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
-import { StartupStateScreen } from './StartupStateScreen';
 
 const INITIATIVE_OPEN_RADIUS_METERS = 50;
 
@@ -25,7 +24,7 @@ const distanceMeters = (
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
+export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player, gpsRetryToken = 0, onGpsStateChange }) {
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
@@ -36,7 +35,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [locationReady, setLocationReady] = useState(false);
   const [locationUnavailable, setLocationUnavailable] = useState(false);
-  const [locationAttempt, setLocationAttempt] = useState(0);
   const [anchored, setAnchored] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'scouting' | 'raid' | 'quest'>('scouting');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -65,6 +63,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     setLocationReady(false);
     setLocationUnavailable(false);
     setLocationIssue(null);
+    onGpsStateChange?.({ unavailable: false, issue: null });
 
     const start = async () => {
       try {
@@ -73,6 +72,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           if (!active) return;
           setLocationIssue('Wyłączony GPS');
           setLocationUnavailable(true);
+          onGpsStateChange?.({ unavailable: true, issue: 'Wyłączony GPS' });
           return;
         }
 
@@ -81,6 +81,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
           setLocationUnavailable(true);
+          onGpsStateChange?.({ unavailable: true, issue: 'Brak dostępu do GPS' });
           return;
         }
 
@@ -91,6 +92,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         setLocationIssue(null);
         setLocationUnavailable(false);
         setLocationReady(true);
+        onGpsStateChange?.({ unavailable: false, issue: null });
         webView.current?.injectJavaScript(
           'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
@@ -110,6 +112,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         setLocationIssue('Brak sygnału GPS');
         setLocationReady(false);
         setLocationUnavailable(true);
+        onGpsStateChange?.({ unavailable: true, issue: 'Brak sygnału GPS' });
       }
     };
 
@@ -118,23 +121,9 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       active = false;
       subscription?.remove();
     };
-  }, [locationAttempt]);
-
-  const retryLocation = () => {
-    latestLocation.current = null;
-    setLocationIssue(null);
-    setLocationUnavailable(false);
-    setLocationReady(false);
-    setLocationAttempt((attempt) => attempt + 1);
-  };
+  }, [gpsRetryToken]);
 
   const bootLoading = !locationUnavailable && (!mapReady || !locationReady);
-
-  const gpsMessage = locationIssue === 'Wyłączony GPS'
-    ? 'Włącz GPS w telefonie, a potem spróbuj ponownie. Lokalizacja jest potrzebna do mapy i działań na miejscu.'
-    : locationIssue === 'Brak dostępu do GPS'
-      ? 'Zezwól SideQuest na dostęp do lokalizacji, aby korzystać z mapy i oddawać Głosy na miejscu.'
-      : 'Nie udało się ustalić Twojej pozycji. Sprawdź GPS i spróbuj ponownie.';
 
   const handleMessage = (event) => {
     try {
@@ -351,48 +340,29 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       <BottomNav active="map" onSelect={onNavigate} />
 
       {bootLoading && (
-        <View style={styles.startupOverlay}>
-          <StartupStateScreen
-            mode="loading"
-            title="Ładowanie mapy…"
-            body="Ustalamy Twoją lokalizację i przygotowujemy najbliższe miejsca."
-          />
+        <View style={styles.mapBootOverlay}>
+          <ActivityIndicator color={colors.signal} size="large" />
+          <Text style={styles.mapBootText}>Ładowanie mapy…</Text>
         </View>
       )}
-
-      <Modal
-        animationType="fade"
-        navigationBarTranslucent
-        onRequestClose={() => {}}
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-        transparent={false}
-        visible={locationUnavailable}
-      >
-        <View style={styles.fullscreenGps}>
-          <StartupStateScreen
-            mode="gps"
-            title="Brak sygnału GPS"
-            body={gpsMessage}
-            onRetry={retryLocation}
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  startupOverlay: {
+  mapBootOverlay: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
     backgroundColor: colors.background,
-    elevation: 50,
-    zIndex: 100,
+    justifyContent: 'center',
+    zIndex: 40,
   },
-  fullscreenGps: {
-    backgroundColor: colors.background,
-    flex: 1,
+  mapBootText: {
+    color: colors.muted,
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    marginTop: 10,
   },
   mapArea: { flex: 1, overflow: 'hidden' },
   map: { flex: 1 },
