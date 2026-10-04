@@ -36,7 +36,36 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
   <script>
     const markers = ${escapeJson(markers)};
     let playerPosition = [${center.longitude}, ${center.latitude}];
-    const send = (type, payload = {}) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type, ...payload }));
+    const send = (type, payload = {}) => {
+      const message = JSON.stringify({ type, ...payload });
+      if (window.ReactNativeWebView?.postMessage) {
+        window.ReactNativeWebView.postMessage(message);
+        return;
+      }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(message, '*');
+      }
+    };
+
+    window.addEventListener('message', (event) => {
+      if (event.source !== window.parent) return;
+      const data = event.data;
+      if (!data || data.type !== 'sitequest-eval' || typeof data.code !== 'string') return;
+      try {
+        (0, eval)(data.code);
+      } catch (error) {
+        send('map-error', { message: String(error) });
+      }
+    });
+
+    window.addEventListener('error', (event) => {
+      send('map-error', { message: event.message || 'Błąd mapy' });
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      send('map-error', { message: String(event.reason || 'Błąd mapy') });
+    });
+
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://tiles.openfreemap.org/styles/liberty',
