@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader } from '../components';
+import type { KckPrepareResponse } from '../api';
 import { colors, fonts, shadow } from '../theme';
 import type { KckCategory, KckIncidentDraft } from '../types';
 
@@ -42,15 +43,20 @@ export function IncidentScreen({
   onBack,
   onCamera,
   photoUri,
+  onPrepare,
   onSubmit,
+  onInterest,
 }: {
   onBack: () => void;
   onCamera: () => void;
   photoUri?: string;
-  onSubmit?: (draft: KckIncidentDraft) => Promise<{ incidentId: string }>;
+  onPrepare?: (photoUri: string, coordinates: { latitude: number; longitude: number }) => Promise<KckPrepareResponse>;
+  onSubmit?: (draftId: string, draft: KckIncidentDraft) => Promise<{ incidentId: string }>;
+  onInterest?: (draftId: string, incidentId: string) => Promise<{ incidentId: string }>;
 }) {
   const scrollRef = useRef<ScrollView>(null);
-  const [stage, setStage] = useState(photoUri ? 2 : 1);
+  const preparedPhotoRef = useRef<string | null>(null);
+  const [stage, setStage] = useState(1);
   const [category, setCategory] = useState<KckCategory>('OTHER');
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
@@ -65,6 +71,12 @@ export function IncidentScreen({
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [incidentId, setIncidentId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(Boolean(photoUri));
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [nearby, setNearby] = useState<Extract<KckPrepareResponse, { status: 'PREPARED' }>['nearby']>([]);
+  const [interestSubmitting, setInterestSubmitting] = useState(false);
+  const [completedAsInterest, setCompletedAsInterest] = useState(false);
 
   const loadLocationAndAddress = async () => {
     setLocationLoading(true);
@@ -136,6 +148,44 @@ export function IncidentScreen({
     loadLocationAndAddress();
   }, []);
 
+  const preparePhoto = async (currentPhoto: string, currentCoordinates: { latitude: number; longitude: number }) => {
+    if (!onPrepare) return;
+    setPreparing(true);
+    setAnalysisError(null);
+    setSubmissionError(null);
+    try {
+      const prepared = await onPrepare(currentPhoto, currentCoordinates);
+      if (prepared.status === 'RETAKE') {
+        setDraftId(null);
+        setAnalysisError(prepared.message || 'Zrób nowe zdjęcie usterki.');
+        setStage(1);
+        return;
+      }
+
+      setDraftId(prepared.draftId);
+      setNearby(prepared.nearby);
+      if (prepared.category) setCategory(prepared.category);
+      if (prepared.summary) setSummary(prepared.summary);
+      if (prepared.description) setDescription(prepared.description);
+      if (prepared.address?.streetName) setStreetName(prepared.address.streetName);
+      if (prepared.address?.buildingNumber) setBuildingNumber(prepared.address.buildingNumber);
+      if (prepared.address?.zipCode) setZipCode(normalizeZipCode(prepared.address.zipCode));
+      setStage(2);
+    } catch (error) {
+      setDraftId(null);
+      setAnalysisError(error instanceof Error ? error.message : 'Nie udało się przeanalizować zdjęcia.');
+      setStage(1);
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!photoUri || !coordinates || !onPrepare || preparedPhotoRef.current === photoUri) return;
+    preparedPhotoRef.current = photoUri;
+    void preparePhoto(photoUri, coordinates);
+  }, [photoUri, coordinates]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [stage]);
@@ -148,11 +198,12 @@ export function IncidentScreen({
       && buildingNumber.trim()
       && isZipValid,
   );
-  const isValid = Boolean(photoUri && descriptionStageValid && locationStageValid);
+  const isValid = Boolean(photoUri && draftId && descriptionStageValid && locationStageValid);
 
   const missingFields = useMemo(() => {
     const items: string[] = [];
     if (!photoUri) items.push('Zdjęcie na żywo');
+    if (!draftId) items.push('analiza zdjęcia');
     if (!summary.trim()) items.push('tytuł');
     if (!description.trim()) items.push('opis');
     if (!coordinates) items.push('GPS');
@@ -160,7 +211,7 @@ export function IncidentScreen({
     if (!buildingNumber.trim()) items.push('numer');
     if (!isZipValid) items.push('kod pocztowy');
     return items;
-  }, [photoUri, coordinates, summary, description, streetName, buildingNumber, isZipValid]);
+  }, [photoUri, draftId, coordinates, summary, description, streetName, buildingNumber, isZipValid]);
 
   const goToStage = (nextStage: number) => {
     if (nextStage < stage) {
@@ -168,7 +219,7 @@ export function IncidentScreen({
       return;
     }
 
-    if (stage === 1 && !photoUri) return;
+    if (stage === 1 && (!photoUri || !draftId)) return;
     if (stage === 2 && !descriptionStageValid) return;
     if (stage === 3 && !locationStageValid) return;
 
@@ -176,7 +227,7 @@ export function IncidentScreen({
   };
 
   const submit = async () => {
-    if (!isValid || !photoUri || !coordinates || submitting) return;
+    if (!isValid || !photoUri || !coordinates || !draftId || submitting) return;
 
     setSubmissionError(null);
     setSubmitting(true);
@@ -199,7 +250,7 @@ export function IncidentScreen({
         return;
       }
 
-      const result = await onSubmit(draft);
+      const result = await onSubmit(draftId, draft);
       if (!result?.incidentId) {
         setSubmissionError('KCK nie zwróciło numeru zgłoszenia. Zgłoszenie nie zostało potwierdzone.');
         return;
@@ -213,6 +264,22 @@ export function IncidentScreen({
     }
   };
 
+  const registerInterest = async (nearbyIncidentId: string) => {
+    if (!draftId || !onInterest || interestSubmitting) return;
+    setSubmissionError(null);
+    setInterestSubmitting(true);
+    try {
+      const result = await onInterest(draftId, nearbyIncidentId);
+      if (!result.incidentId) throw new Error('KCK nie zwróciło numeru istniejącego zgłoszenia.');
+      setCompletedAsInterest(true);
+      setIncidentId(result.incidentId);
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : 'Nie udało się wskazać istniejącej Usterki.');
+    } finally {
+      setInterestSubmitting(false);
+    }
+  };
+
   if (incidentId) {
     return (
       <View style={styles.screen}>
@@ -221,11 +288,11 @@ export function IncidentScreen({
           <View style={styles.successIcon}>
             <Ionicons color={colors.resolved} name="checkmark-circle" size={48} />
           </View>
-          <Text style={styles.successTitle}>Zgłoszenie przekazane do KCK</Text>
+          <Text style={styles.successTitle}>{completedAsInterest ? 'Wskazano istniejącą Usterkę' : 'Zgłoszenie przekazane do KCK'}</Text>
           <Text style={styles.successLabel}>Numer zgłoszenia</Text>
           <Text selectable style={styles.incidentId}>{incidentId}</Text>
           <Text style={styles.successBody}>
-            Punkty mogą zostać naliczone dopiero po potwierdzonym przyjęciu zgłoszenia przez KCK.
+            {completedAsInterest ? 'Dziękujemy za potwierdzenie. Punkty za Interes zostały naliczone.' : 'Punkty mogą zostać naliczone dopiero po potwierdzonym przyjęciu zgłoszenia przez KCK.'}
           </Text>
           <PrimaryButton icon="map-outline" onPress={onBack}>Wróć do mapy</PrimaryButton>
         </View>
@@ -265,8 +332,39 @@ export function IncidentScreen({
             )}
           </View>
 
+          {analysisError && (
+            <View style={styles.errorCard}>
+              <Ionicons color={colors.error} name="alert-circle-outline" size={20} />
+              <Text style={styles.errorText}>{analysisError}</Text>
+            </View>
+          )}
+
+          {!analysisError && photoUri && !draftId && locationError && (
+            <View style={styles.errorCard}>
+              <Ionicons color={colors.error} name="location-outline" size={20} />
+              <Text style={styles.errorText}>Nie można rozpocząć analizy bez GPS. {locationError}</Text>
+            </View>
+          )}
+
+          {analysisError && photoUri ? (
+            <PrimaryButton
+              disabled={!coordinates}
+              icon="refresh"
+              onPress={() => coordinates && preparePhoto(photoUri, coordinates)}
+              style={styles.nextButton}
+            >
+              Spróbuj analizy ponownie
+            </PrimaryButton>
+          ) : null}
+
+          {!analysisError && photoUri && !draftId && locationError ? (
+            <PrimaryButton icon="locate-outline" onPress={loadLocationAndAddress} style={styles.nextButton}>
+              Spróbuj ustalić lokalizację
+            </PrimaryButton>
+          ) : null}
+
           <PrimaryButton
-            disabled={!photoUri}
+            disabled={!photoUri || !draftId}
             icon="arrow-forward"
             onPress={() => goToStage(2)}
             style={styles.nextButton}
@@ -309,6 +407,24 @@ export function IncidentScreen({
             placeholder="Krótko: co jest uszkodzone?"
             counter={`${summary.length}/60`}
           />
+
+          {nearby.length > 0 && (
+            <View style={styles.nearbyCard}>
+              <Text style={styles.nearbyTitle}>Podobne zgłoszenia w pobliżu</Text>
+              <Text style={styles.nearbyText}>Jeśli to ta sama Usterka, wskaż istniejące zgłoszenie zamiast wysyłać duplikat.</Text>
+              {nearby.map((item) => (
+                <View key={item.id} style={styles.nearbyItem}>
+                  <View style={styles.nearbyCopy}>
+                    <Text style={styles.nearbySummary}>{item.summary || 'Usterka bez tytułu'}</Text>
+                    <Text style={styles.nearbyText}>{item.distanceM} m · {item.description || 'Brak opisu'}</Text>
+                  </View>
+                  <Pressable disabled={interestSubmitting} onPress={() => void registerInterest(item.id)} style={styles.nearbyButton}>
+                    <Text style={styles.nearbyButtonText}>{interestSubmitting ? 'Zapisywanie…' : 'To ta sama'}</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
 
           <Field
             label="Opis"
@@ -479,6 +595,21 @@ export function IncidentScreen({
       </>
     );
   };
+
+  const waitingForPreparation = Boolean(
+    photoUri && !draftId && !analysisError && (preparing || locationLoading || geocodingLoading || coordinates),
+  );
+
+  if (waitingForPreparation) {
+    return (
+      <View style={styles.analysisScreen}>
+        <ScreenHeader kicker="KCK" title="Przygotowuję zgłoszenie" onBack={onBack} />
+        <ActivityIndicator color={colors.signal} size="large" />
+        <Text style={styles.analysisTitle}>{coordinates ? 'Analizuję zdjęcie…' : 'Ustalam lokalizację…'}</Text>
+        <Text style={styles.analysisText}>{coordinates ? 'AI przygotowuje kategorię i opis, a serwer sprawdza adres oraz podobne Usterki.' : 'GPS jest potrzebny, aby przygotować szkic zgłoszenia KCK.'}</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -937,6 +1068,15 @@ const styles = StyleSheet.create({
   },
   errorText: { color: colors.error, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
 
+  nearbyCard: { backgroundColor: colors.blueSoft, borderRadius: 18, marginTop: 18, padding: 14 },
+  nearbyTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
+  nearbyText: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  nearbyItem: { alignItems: 'center', borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, marginTop: 12, paddingTop: 12 },
+  nearbyCopy: { flex: 1 },
+  nearbySummary: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 },
+  nearbyButton: { backgroundColor: colors.surface, borderColor: colors.signal, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  nearbyButtonText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10 },
+
   submitButton: { marginTop: 12 },
   footerNote: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, lineHeight: 15, marginTop: 10, textAlign: 'center' },
 
@@ -953,4 +1093,7 @@ const styles = StyleSheet.create({
   successLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11, marginTop: 24, textTransform: 'uppercase' },
   incidentId: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 28, marginTop: 4 },
   successBody: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginBottom: 24, marginTop: 14, textAlign: 'center' },
+  analysisScreen: { alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 30 },
+  analysisTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 24, marginTop: 18, textAlign: 'center' },
+  analysisText: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: 'center' },
 });

@@ -19,6 +19,7 @@ import {
   listInitiatives,
   listRewards,
   prepareKck,
+  registerKckInterest,
   redeemReward,
   submitKck,
   uploadInitiativePhoto,
@@ -237,28 +238,30 @@ export default function App() {
     setScreen('detail');
   };
 
-  const submitIncident = async (draft: KckIncidentDraft) => {
+  const prepareIncident = async (
+    photoUri: string,
+    coordinates: { latitude: number; longitude: number },
+  ) => {
     if (!player.id) throw new Error('Brak sesji Gracza.');
+    return prepareKck({ photoUri, playerId: player.id, ...coordinates });
+  };
 
-    const prepared = await prepareKck(
-      draft.photoUri,
-      player.id,
-      { latitude: draft.latitude, longitude: draft.longitude },
-    );
-
-    if (prepared?.status === 'RETAKE') {
-      throw new Error(prepared.message || 'Zrób nowe zdjęcie usterki.');
-    }
-    if (!prepared?.draftId) {
-      throw new Error('Backend nie utworzył szkicu zgłoszenia.');
-    }
-
-    const result = await submitKck(prepared.draftId, draft);
+  const submitIncident = async (draftId: string, draft: KckIncidentDraft) => {
+    if (!player.id) throw new Error('Brak sesji Gracza.');
+    const result = await submitKck(draftId, draft);
     if (result?.incidentId) {
       const nextPlayer = await getPlayer(player.id);
       setPlayer(nextPlayer);
     }
     return { incidentId: String(result?.incidentId || '') };
+  };
+
+  const registerIncidentInterest = async (draftId: string, incidentId: string) => {
+    if (!player.id) throw new Error('Brak sesji Gracza.');
+    const result = await registerKckInterest(draftId, incidentId);
+    const nextPlayer = await getPlayer(player.id);
+    setPlayer(nextPlayer);
+    return { incidentId: String(result.incidentId || '') };
   };
 
   const renderScreen = () => {
@@ -327,7 +330,9 @@ export default function App() {
         return (
           <IncidentScreen
             photoUri={incidentPhotoUri}
+            onPrepare={prepareIncident}
             onSubmit={submitIncident}
+            onInterest={registerIncidentInterest}
             onBack={() => {
               setIncidentPhotoUri(undefined);
               navigateTo('map');

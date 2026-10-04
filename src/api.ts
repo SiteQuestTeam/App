@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import type { Coordinates, Initiative, KckIncidentDraft, PlayerState, Reward } from './types';
+import type { Coordinates, Initiative, KckCategory, KckIncidentDraft, PlayerState, Reward } from './types';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -71,8 +71,8 @@ export type KckPrepareResponse =
       photoUrl: string;
       aiAvailable: boolean;
       addressAvailable: boolean;
-      category: import('./types').KckCategory | null;
-      serviceExternalId: number | null;
+      category: KckCategory | null;
+      serviceExternalId: string | null;
       summary: string | null;
       description: string | null;
       address: { streetName: string; buildingNumber: string; zipCode: string } | null;
@@ -80,7 +80,7 @@ export type KckPrepareResponse =
       longitude: number;
       nearby: Array<{
         id: string;
-        category: import('./types').KckCategory | null;
+        category: KckCategory | null;
         summary: string | null;
         description: string | null;
         photoUrl: string;
@@ -89,6 +89,15 @@ export type KckPrepareResponse =
       }>;
     };
 
+export interface KckPreparationInput {
+  photoUri: string;
+  playerId: string;
+  latitude: number;
+  longitude: number;
+  line?: string;
+  categoryHint?: KckCategory;
+}
+
 export interface KckSubmitResponse {
   status: 'SUBMITTED';
   incidentId: string | null;
@@ -96,6 +105,12 @@ export interface KckSubmitResponse {
   photoUrl: string;
   pointsGranted: number;
   pointsGrantedAt: string | null;
+}
+
+export interface KckInterestResponse {
+  status: 'INTEREST';
+  incidentId: string | null;
+  pointsGranted: number;
 }
 
 export class ApiError extends Error {
@@ -172,7 +187,17 @@ async function photoBase64(uri: string): Promise<string> {
   });
 }
 
-function normalizeInitiative(raw: any): Initiative {
+type ApiInitiative = Omit<Initiative, 'color' | 'distance'> & {
+  distanceM?: number;
+  brief: Omit<Initiative['brief'], 'photoUri'> & { photoUri?: string };
+};
+
+interface InitiativeMutationResponse {
+  initiative: ApiInitiative;
+  player: PlayerState;
+}
+
+function normalizeInitiative(raw: ApiInitiative): Initiative {
   return {
     ...raw,
     color: raw.status === 'passed' ? '#24B47E' : '#2F6BFF',
@@ -203,7 +228,7 @@ export async function listInitiatives(
     params.set('longitude', String(coordinates.longitude));
   }
   const query = params.toString();
-  const result = await request<any[]>(`/initiatives${query ? `?${query}` : ''}`);
+  const result = await request<ApiInitiative[]>(`/initiatives${query ? `?${query}` : ''}`);
   return result.map(normalizeInitiative);
 }
 
@@ -211,8 +236,8 @@ export async function voteInitiative(
   initiativeId: string,
   playerId: string,
   coordinates: Coordinates,
-) {
-  const result = await json<any>(`/initiatives/${encodeURIComponent(initiativeId)}/votes`, 'POST', {
+): Promise<{ initiative: Initiative; player: PlayerState; awardedPoints: number; distanceM: number; passed: boolean }> {
+  const result = await json<InitiativeMutationResponse & { awardedPoints: number; distanceM: number; passed: boolean }>(`/initiatives/${encodeURIComponent(initiativeId)}/votes`, 'POST', {
     playerId,
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
@@ -220,7 +245,7 @@ export async function voteInitiative(
   return {
     ...result,
     initiative: normalizeInitiative(result.initiative),
-    player: result.player as PlayerState,
+    player: result.player,
   };
 }
 
@@ -260,11 +285,11 @@ export async function createInitiative(input: {
   fixer: string;
   place: string;
   photoUri?: string;
-}) {
-  const result = await json<any>('/initiatives', 'POST', input);
+}): Promise<{ initiative: Initiative; player: PlayerState }> {
+  const result = await json<InitiativeMutationResponse>('/initiatives', 'POST', input);
   return {
     initiative: normalizeInitiative(result.initiative),
-    player: result.player as PlayerState,
+    player: result.player,
   };
 }
 
@@ -303,15 +328,15 @@ export async function aiStep2(
 }
 
 export async function prepareKck(
-  photoUri: string,
-  playerId: string,
-  coordinates: Coordinates,
+  input: KckPreparationInput,
 ): Promise<KckPrepareResponse> {
   const form = new FormData();
-  await appendImage(form, 'file', photoUri);
-  form.append('latitude', String(coordinates.latitude));
-  form.append('longitude', String(coordinates.longitude));
-  form.append('playerId', playerId);
+  await appendImage(form, 'file', input.photoUri);
+  form.append('latitude', String(input.latitude));
+  form.append('longitude', String(input.longitude));
+  form.append('playerId', input.playerId);
+  if (input.line?.trim()) form.append('line', input.line.trim());
+  if (input.categoryHint) form.append('categoryHint', input.categoryHint);
   return request<KckPrepareResponse>('/kck/prepare', { method: 'POST', body: form });
 }
 
@@ -327,4 +352,8 @@ export async function submitKck(draftId: string, draft: KckIncidentDraft): Promi
     buildingNumber: draft.buildingNumber,
     zipCode: draft.zipCode,
   });
+}
+
+export function registerKckInterest(draftId: string, incidentId: string): Promise<KckInterestResponse> {
+  return json<KckInterestResponse>('/kck/interest', 'POST', { draftId, incidentId });
 }

@@ -1,7 +1,9 @@
 import type {
   AiStep1Response,
   AiStep2Response,
+  KckPreparationInput,
   KckPrepareResponse,
+  KckInterestResponse,
   KckSubmitResponse,
 } from './api';
 
@@ -27,9 +29,14 @@ const step2: AiStep2Response = {
   },
 };
 
+const prepareInput: KckPreparationInput = {
+  photoUri: 'file:///photo.jpg', playerId: 'player-1', latitude: 50, longitude: 19,
+  line: 'Uszkodzony chodnik', categoryHint: 'DAMAGE',
+};
+
 const prepared: KckPrepareResponse = {
   status: 'PREPARED', draftId: 'draft-1', photoUrl: '/kck/incidents/draft-1/photo',
-  aiAvailable: true, addressAvailable: true, category: 'DAMAGE', serviceExternalId: 1,
+  aiAvailable: true, addressAvailable: true, category: 'DAMAGE', serviceExternalId: '30492-uszkodzenia',
   summary: 'Uszkodzony chodnik', description: 'Opis', address: { streetName: 'Testowa', buildingNumber: '1', zipCode: '30-001' },
   latitude: 50, longitude: 19, nearby: [],
 };
@@ -38,4 +45,8 @@ const submitted: KckSubmitResponse = {
   status: 'SUBMITTED', incidentId: 'KCK-1', mock: true, photoUrl: '/kck/incidents/draft-1/photo', pointsGranted: 30, pointsGrantedAt: '2026-10-04T00:00:00.000Z',
 };
 
-void [step1, step2, prepared, submitted];
+const interested: KckInterestResponse = {
+  status: 'INTEREST', incidentId: 'KCK-1', pointsGranted: 5,
+};
+
+void [step1, step2, prepareInput, prepared, submitted, interested];
