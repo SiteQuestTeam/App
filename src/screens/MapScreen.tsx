@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -28,8 +28,9 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const webView = useRef<any>(null);
   const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
+  const { width: screenWidth } = useWindowDimensions();
 
-  const [selectedId, setSelectedId] = useState(initiatives[0]?.id);
+  const [playerCoords, setPlayerCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapError, setMapError] = useState(false);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [anchored, setAnchored] = useState(false);
@@ -40,7 +41,21 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const filtered = initiatives;
   const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
   const html = useMemo(() => createMapHtml(filtered), [htmlKey]);
-  const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
+  const nearbyInitiatives = useMemo(() => {
+    if (!playerCoords) return [];
+
+    return initiatives
+      .map((initiative) => ({
+        initiative,
+        distance: distanceMeters(
+          playerCoords,
+          { latitude: initiative.latitude, longitude: initiative.longitude },
+        ),
+      }))
+      .filter((item) => item.distance <= INITIATIVE_OPEN_RADIUS_METERS)
+      .sort((a, b) => a.distance - b.distance);
+  }, [initiatives, playerCoords]);
+  const quickCardWidth = Math.max(260, screenWidth - 40);
 
   useEffect(() => {
     createMenuProgress.stopAnimation();
@@ -72,6 +87,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!enabled) {
           if (!active) return;
           setLocationIssue('Wyłączony GPS');
+          setPlayerCoords(null);
           webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
           return;
         }
@@ -80,6 +96,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!permission.granted) {
           if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
+          setPlayerCoords(null);
           webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
           return;
         }
@@ -88,6 +105,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!active) return;
 
         latestLocation.current = first;
+        setPlayerCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude });
         setLocationIssue(null);
         webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(true);true;');
         webView.current?.injectJavaScript(
@@ -99,6 +117,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           (next) => {
             if (!active) return;
             latestLocation.current = next;
+            setPlayerCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
             webView.current?.injectJavaScript(
               'window.movePlayer && window.movePlayer(' + next.coords.longitude + ',' + next.coords.latitude + ',false);true;',
             );
@@ -107,6 +126,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       } catch {
         if (!active) return;
         setLocationIssue('Brak sygnału GPS');
+        setPlayerCoords(null);
         webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
       }
     };
@@ -125,8 +145,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       if (message.type === 'initiative') {
         const initiative = initiatives.find((item) => item.id === message.id);
         if (!initiative) return;
-
-        setSelectedId(initiative.id);
 
         const location = latestLocation.current;
         if (!location?.coords) {
@@ -232,20 +250,45 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           </Pressable>
         )}
 
-        {selected && (
-          <Pressable onPress={() => onOpenInitiative(selected)} style={styles.quickCard}>
-            <View style={[styles.quickMarker, { backgroundColor: selected.status === 'passed' ? colors.resolved : selected.color }]}>
-              <Text style={styles.quickMarkerText}>{selected.status === 'passed' ? '✓' : selected.votes}</Text>
-            </View>
-            <View style={styles.quickCopy}>
-              <StatusChip tone={selected.status === 'passed' ? 'green' : 'blue'}>
-                {selected.status === 'passed' ? 'Przeszła' : 'Zbiera głosy'}
-              </StatusChip>
-              <Text numberOfLines={2} style={styles.quickTitle}>{selected.brief.title}</Text>
-              <Text style={styles.quickMeta}>{selected.votes}/{selected.threshold} Głosów · {selected.distance}</Text>
-            </View>
-            <Ionicons color={colors.muted} name="chevron-forward" size={20} />
-          </Pressable>
+        {nearbyInitiatives.length > 0 && (
+          <View style={styles.nearbyCarousel}>
+            <ScrollView
+              contentContainerStyle={styles.nearbyCarouselContent}
+              decelerationRate="fast"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={quickCardWidth + 8}
+              snapToAlignment="start"
+            >
+              {nearbyInitiatives.map(({ initiative, distance }) => (
+                <Pressable
+                  key={initiative.id}
+                  onPress={() => onOpenInitiative(initiative)}
+                  style={[styles.quickCard, { width: quickCardWidth }]}
+                >
+                  <View
+                    style={[
+                      styles.quickMarker,
+                      { backgroundColor: initiative.status === 'passed' ? colors.resolved : initiative.color },
+                    ]}
+                  >
+                    <Text style={styles.quickMarkerText}>{initiative.status === 'passed' ? '✓' : initiative.votes}</Text>
+                  </View>
+                  <View style={styles.quickCopy}>
+                    <View style={styles.quickTopRow}>
+                      <StatusChip tone={initiative.status === 'passed' ? 'green' : 'blue'}>
+                        {initiative.status === 'passed' ? 'Przeszła' : 'Zbiera głosy'}
+                      </StatusChip>
+                      <Text style={styles.quickDistance}>~{Math.round(distance)} m</Text>
+                    </View>
+                    <Text numberOfLines={2} style={styles.quickTitle}>{initiative.brief.title}</Text>
+                    <Text style={styles.quickMeta}>{initiative.votes}/{initiative.threshold} Głosów</Text>
+                  </View>
+                  <Ionicons color={colors.muted} name="chevron-forward" size={20} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
         )}
       </View>
 
@@ -305,6 +348,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
       <BottomNav
         active="map"
+        addOpen={createMenuOpen}
         onAdd={() => setCreateMenuOpen((open) => !open)}
         onSelect={onNavigate}
       />
@@ -401,10 +445,14 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   proximityNoticeText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyBold, fontSize: 11, lineHeight: 15 },
-  quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 12, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, ...shadow },
+  nearbyCarousel: { bottom: 12, left: 12, position: 'absolute', right: 0 },
+  nearbyCarouselContent: { gap: 8, paddingRight: 20 },
+  quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 13, ...shadow },
   quickMarker: { alignItems: 'center', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 },
   quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 18 },
   quickCopy: { flex: 1 },
+  quickTopRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  quickDistance: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10 },
   quickTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 14, lineHeight: 18, marginTop: 5 },
   quickMeta: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, marginTop: 3 },
 });
