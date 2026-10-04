@@ -72,6 +72,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!enabled) {
           if (!active) return;
           setLocationIssue('Wyłączony GPS');
+          webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
           return;
         }
 
@@ -79,6 +80,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         if (!permission.granted) {
           if (!active) return;
           setLocationIssue('Brak dostępu do GPS');
+          webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
           return;
         }
 
@@ -87,6 +89,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
         latestLocation.current = first;
         setLocationIssue(null);
+        webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(true);true;');
         webView.current?.injectJavaScript(
           'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
         );
@@ -104,6 +107,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       } catch {
         if (!active) return;
         setLocationIssue('Brak sygnału GPS');
+        webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
       }
     };
 
