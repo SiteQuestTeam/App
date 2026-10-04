@@ -303,24 +303,11 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         </Animated.View>
       )}
 
-      <Pressable
-        accessibilityLabel={createMenuOpen ? 'Zamknij menu zgłoszenia' : 'Dodaj zgłoszenie'}
-        accessibilityRole="button"
-        onPress={() => setCreateMenuOpen((open) => !open)}
-        style={({ pressed }) => [styles.fab, createMenuOpen && styles.fabOpen, pressed && styles.fabPressed]}
-      >
-        <Animated.View
-          style={{
-            transform: [
-              { scale: createMenuProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.9] }) },
-            ],
-          }}
-        >
-          <Ionicons color={colors.surface} name="add" size={32} />
-        </Animated.View>
-      </Pressable>
-
-      <BottomNav active="map" onSelect={onNavigate} />
+      <BottomNav
+        active="map"
+        onAdd={() => setCreateMenuOpen((open) => !open)}
+        onSelect={onNavigate}
+      />
     </View>
   );
 }
@@ -346,7 +333,7 @@ const styles = StyleSheet.create({
   roundActionActive: { backgroundColor: colors.signal },
 
   createChoices: {
-    bottom: 132,
+    bottom: 84,
     flexDirection: 'row',
     gap: 10,
     left: 14,
@@ -394,9 +381,6 @@ const styles = StyleSheet.create({
     color: colors.surface,
   },
 
-  fab: { alignItems: 'center', backgroundColor: colors.signal, borderColor: colors.surface, borderRadius: 31, borderWidth: 5, bottom: 62, height: 62, justifyContent: 'center', left: '50%', marginLeft: -31, position: 'absolute', width: 62, zIndex: 20, ...shadow },
-  fabOpen: { backgroundColor: colors.signal, borderColor: colors.surface },
-  fabPressed: { opacity: 0.9, transform: [{ scale: 0.96 }] },
   locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
   locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
   proximityNotice: {
