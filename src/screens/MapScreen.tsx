@@ -33,11 +33,11 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const [mapError, setMapError] = useState(false);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [anchored, setAnchored] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'collecting' | 'passed'>('all');
+  const [activityFilter, setActivityFilter] = useState<'scouting' | 'raid' | 'quest'>('scouting');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [proximityNotice, setProximityNotice] = useState<string | null>(null);
 
-  const filtered = initiatives.filter((item) => filter === 'all' || item.status === filter);
+  const filtered = initiatives;
   const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
   const html = useMemo(() => createMapHtml(filtered), [htmlKey]);
   const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
@@ -181,16 +181,16 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
 
           <View style={styles.filters}>
             {[
-              ['all', 'Wszystkie'],
-              ['collecting', 'Zbiera głosy'],
-              ['passed', 'Przeszły'],
+              ['scouting', 'Zwiad'],
+              ['raid', 'Rajd'],
+              ['quest', 'Misja'],
             ].map(([value, label]) => (
               <Pressable
                 key={value}
-                onPress={() => setFilter(value as 'all' | 'collecting' | 'passed')}
-                style={[styles.filter, filter === value && styles.filterActive]}
+                onPress={() => setActivityFilter(value as 'scouting' | 'raid' | 'quest')}
+                style={[styles.filter, activityFilter === value && styles.filterActive]}
               >
-                <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>{label}</Text>
+                <Text style={[styles.filterText, activityFilter === value && styles.filterTextActive]}>{label}</Text>
               </Pressable>
             ))}
           </View>
