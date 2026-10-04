@@ -59,7 +59,10 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
+          ./gradlew :app:assembleRelease :app:bundleRelease \
+            -PappVersionCode="${CI_VERSION_CODE}" \
+            -PappVersionName="${CI_VERSION_NAME}" \
+            --no-daemon
 
       - name: Prepare release files
         shell: bash
