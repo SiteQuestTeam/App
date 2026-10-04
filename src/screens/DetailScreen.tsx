@@ -333,6 +333,115 @@ function InitiativeHero({ initiative }) {
   );
 }
 
+function CollectingInitiativeDetail({
+  initiative,
+  onBack,
+  distance,
+  checking,
+  locationError,
+  onCheckLocation,
+}) {
+  return (
+    <View style={styles.screen}>
+      <ScreenHeader kicker="Inicjatywa" onBack={onBack} title="Szczegóły" />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {initiative.brief.photoUri ? (
+          <Image source={{ uri: initiative.brief.photoUri }} style={styles.photo} />
+        ) : (
+          <View style={[styles.hero, { backgroundColor: colors.blueSoft }]}>
+            <View style={[styles.categoryOrb, { backgroundColor: initiative.color }]}>
+              <Ionicons color={colors.surface} name="sparkles-outline" size={30} />
+            </View>
+            <Text style={styles.heroHint}>{initiative.brief.category.toUpperCase()}</Text>
+          </View>
+        )}
+
+        <View style={styles.detailMetaRow}>
+          <StatusChip tone="blue" icon="megaphone-outline">Zbiera głosy</StatusChip>
+          <View style={styles.distancePill}>
+            <Ionicons color={colors.signal} name="location-outline" size={14} />
+            <Text style={styles.distancePillText}>{initiative.distance || 'w pobliżu'}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.title}>{initiative.brief.title}</Text>
+        <Text style={styles.place}>{initiative.brief.place}</Text>
+
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressTitle}>Głosy</Text>
+          <Text style={styles.progressCount}>{initiative.votes}/{initiative.threshold}</Text>
+        </View>
+        <View style={styles.progress}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${Math.min(100, initiative.votes / initiative.threshold * 100)}%`,
+                backgroundColor: colors.signal,
+              },
+            ]}
+          />
+        </View>
+
+        <BriefSection icon="alert-circle-outline" label="Problem" text={initiative.brief.problem} />
+        <BriefSection icon="hammer-outline" label="Proponowane działanie" text={initiative.brief.proposedAction} />
+        <BriefSection icon="heart-outline" label="Dlaczego to ważne" text={initiative.brief.whyImportant} />
+
+        <Text style={styles.sectionTitle}>Potrzebne zasoby</Text>
+        <View style={styles.resources}>
+          <Resource icon="people-outline" label="Ludzie" value={initiative.brief.resources.people} />
+          <Resource icon="construct-outline" label="Sprzęt" value={initiative.brief.resources.equipment} />
+          <Resource icon="car-outline" label="Transport" value={initiative.brief.resources.transport} />
+        </View>
+
+        <View style={styles.fixerCard}>
+          <View style={styles.fixerIcon}>
+            <Ionicons color={colors.violet} name="build-outline" size={22} />
+          </View>
+          <View style={styles.fixerCopy}>
+            <Text style={styles.fixerLabel}>KTO NAPRAWI</Text>
+            <Text style={styles.fixerValue}>{initiative.brief.fixer}</Text>
+            <Text style={styles.fixerMeta}>Sugestia AI potwierdzona przez Gracza</Text>
+          </View>
+        </View>
+
+        <View style={styles.locationCard}>
+          <Ionicons
+            color={distance !== null && distance <= 50 ? colors.resolved : colors.signal}
+            name="location"
+            size={21}
+          />
+          <View style={styles.locationCopy}>
+            <Text style={styles.locationTitle}>
+              {distance !== null && distance <= 50 ? 'Jesteś w zasięgu Głosu' : 'Głos tylko na miejscu'}
+            </Text>
+            <Text style={styles.locationBody}>
+              {locationError
+                ? 'Nie udało się pobrać GPS.'
+                : distance !== null
+                  ? `Aktualnie: ~${Math.round(distance)} m. Głos wymaga maks. około 50 m.`
+                  : 'Sprawdź lokalizację przed oddaniem Głosu.'}
+            </Text>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={checking}
+              onPress={() => void onCheckLocation()}
+              style={({ pressed }) => [styles.locationCheckButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.signal} name="locate-outline" size={15} />
+              <Text style={styles.locationCheckButtonText}>
+                {checking ? 'Sprawdzam GPS…' : 'Sprawdź lokalizację'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 function PassedInitiativeDetail({ initiative, onBack }) {
   return (
     <View style={styles.screen}>
@@ -430,6 +539,7 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   cardScroll: { flexGrow: 1 },
+  cardTapArea: { flex: 1 },
   tinderHero: { height: 238, overflow: 'hidden', position: 'relative' },
   tinderPhoto: { height: '100%', width: '100%' },
   heroShade: {
@@ -454,6 +564,13 @@ const styles = StyleSheet.create({
   },
   heroCategoryText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.5 },
   tinderHeroFallback: { alignItems: 'center', justifyContent: 'center' },
+  categoryOrb: {
+    alignItems: 'center',
+    borderRadius: 38,
+    height: 76,
+    justifyContent: 'center',
+    width: 76,
+  },
 
   swipeBadge: {
     alignItems: 'center',
@@ -487,6 +604,27 @@ const styles = StyleSheet.create({
   distancePillText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10 },
   tinderTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 25, lineHeight: 31, marginTop: 12 },
   tinderPlace: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginTop: 5 },
+
+  problemBlock: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 16,
+    padding: 14,
+  },
+  problemLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
+  problemLabel: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10, letterSpacing: 0.8 },
+  openDetailsRow: {
+    alignItems: 'center',
+    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    paddingTop: 13,
+  },
+  openDetailsText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 12 },
 
   voteSummary: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, marginTop: 17 },
   voteSummaryLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.8 },
@@ -588,6 +726,7 @@ const styles = StyleSheet.create({
   progressHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
   progressTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
   progressCount: { color: colors.signal, fontFamily: fonts.heading, fontSize: 18 },
+  detailMetaRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
 
   section: {
     backgroundColor: colors.background,
@@ -643,6 +782,18 @@ const styles = StyleSheet.create({
   locationCopy: { flex: 1 },
   locationTitle: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
   locationBody: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 3 },
+  locationCheckButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
+  locationCheckButtonText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 10 },
 
   cta: { marginTop: 18 },
 });
