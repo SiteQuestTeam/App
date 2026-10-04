@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { aiStep1, aiStep2 } from '../api';
+import type { AiInitiativeBrief } from '../api';
 import { colors, fonts } from '../theme';
 import type { Fixer, Initiative } from '../types';
 
@@ -73,7 +74,7 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
     return { latitude, longitude, address };
   };
 
-  const applyBrief = (brief: any) => {
+  const applyBrief = (brief: AiInitiativeBrief) => {
     setTitle(String(brief.title || '').slice(0, 60));
     setCategory(String(brief.category || ''));
     setProblem(String(brief.problem || ''));

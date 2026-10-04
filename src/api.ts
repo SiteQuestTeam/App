@@ -5,6 +5,99 @@ declare const process: { env: Record<string, string | undefined> };
 
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://api.site-quest.pl').replace(/\/+$/, '');
 
+export type AiTopic = 'dzialanie' | 'zasoby';
+
+export interface AiQuestion {
+  topic: AiTopic;
+  question: string;
+  suggestions: string[];
+}
+
+export interface AiCost {
+  model: string;
+  input_tokens: number;
+  cached_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  usd: number;
+}
+
+export interface AiStep1Response {
+  wynik: {
+    status: 'ok' | 'nowe_zdjecie' | 'niezrozumiale' | 'nie_widac_usterki' | 'opisz_zmiane';
+    danger: string | null;
+    danger_kind: 'energia' | 'inne' | null;
+    faces_in_background: boolean;
+    retake_reason: string | null;
+    message: string | null;
+    duplicate_of: string | null;
+    type: 'usterka' | 'inicjatywa' | null;
+    type_locked: boolean;
+    type_reason: string | null;
+    category: string | null;
+    questions: AiQuestion[];
+  };
+  ostrzezenia: string[];
+  koszt: AiCost;
+}
+
+export interface AiInitiativeBrief {
+  title: string;
+  category: string;
+  problem: string;
+  proposedAction: string;
+  whyImportant: string;
+  resources: { people: string; equipment: string; transport: string };
+  fixer: 'Miasto' | 'Gracze';
+}
+
+export interface AiStep2Response {
+  wynik: {
+    status: 'brief' | 'niezrozumiale' | 'pytanie_zwrotne';
+    unclear_topic: AiTopic | null;
+    follow_up: string | null;
+    brief: unknown | null;
+  };
+  ostrzezenia: string[];
+  koszt: AiCost;
+  brief_aplikacji: AiInitiativeBrief | null;
+}
+
+export type KckPrepareResponse =
+  | { status: 'RETAKE'; reason: string; message: string }
+  | {
+      status: 'PREPARED';
+      draftId: string;
+      photoUrl: string;
+      aiAvailable: boolean;
+      addressAvailable: boolean;
+      category: import('./types').KckCategory | null;
+      serviceExternalId: number | null;
+      summary: string | null;
+      description: string | null;
+      address: { streetName: string; buildingNumber: string; zipCode: string } | null;
+      latitude: number;
+      longitude: number;
+      nearby: Array<{
+        id: string;
+        category: import('./types').KckCategory | null;
+        summary: string | null;
+        description: string | null;
+        photoUrl: string;
+        distanceM: number;
+        reportedAt: string;
+      }>;
+    };
+
+export interface KckSubmitResponse {
+  status: 'SUBMITTED';
+  incidentId: string | null;
+  mock: boolean;
+  photoUrl: string;
+  pointsGranted: number;
+  pointsGrantedAt: string | null;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -184,8 +277,8 @@ export async function aiStep1(
     zgloszenia_w_poblizu: unknown[];
     ostatnie_briefy_gracza: unknown[];
   },
-): Promise<any> {
-  return json<any>('/ai/krok-1', 'POST', {
+): Promise<AiStep1Response> {
+  return json<AiStep1Response>('/ai/krok-1', 'POST', {
     zdjecie: await photoBase64(uri),
     dane: data,
   });
@@ -202,8 +295,8 @@ export async function aiStep2(
     adres: string;
     dzielnica: string;
   },
-): Promise<any> {
-  return json<any>('/ai/krok-2', 'POST', {
+): Promise<AiStep2Response> {
+  return json<AiStep2Response>('/ai/krok-2', 'POST', {
     zdjecie: await photoBase64(uri),
     dane: data,
   });
@@ -213,18 +306,18 @@ export async function prepareKck(
   photoUri: string,
   playerId: string,
   coordinates: Coordinates,
-) {
+): Promise<KckPrepareResponse> {
   const form = new FormData();
   await appendImage(form, 'file', photoUri);
   form.append('latitude', String(coordinates.latitude));
   form.append('longitude', String(coordinates.longitude));
   form.append('playerId', playerId);
-  return request<any>('/kck/prepare', { method: 'POST', body: form });
+  return request<KckPrepareResponse>('/kck/prepare', { method: 'POST', body: form });
 }
 
-export async function submitKck(draftId: string, draft: KckIncidentDraft) {
+export async function submitKck(draftId: string, draft: KckIncidentDraft): Promise<KckSubmitResponse> {
   const submissionId = `app-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return json<any>('/kck/submit', 'POST', {
+  return json<KckSubmitResponse>('/kck/submit', 'POST', {
     draftId,
     submissionId,
     category: draft.category,
