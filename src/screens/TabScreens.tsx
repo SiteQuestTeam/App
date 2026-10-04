@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { BottomNav, InitiativeRow, PrimaryButton, StatusChip } from '../components';
 import { rewards } from '../data';
 import { colors, fonts } from '../theme';
@@ -66,56 +65,20 @@ function distanceMeters(
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export function InitiativesScreen({ initiatives, onNavigate, onOpenInitiative }) {
-  const [playerCoords, setPlayerCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    let subscription: any = null;
-
-    const start = async () => {
-      try {
-        const enabled = await Location.hasServicesEnabledAsync();
-        if (!enabled) {
-          if (active) setLocationError('Włącz GPS, aby zobaczyć Inicjatywy w promieniu 500 m.');
-          return;
-        }
-
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) {
-          if (active) setLocationError('Zezwól na lokalizację, aby zobaczyć Inicjatywy w promieniu 500 m.');
-          return;
-        }
-
-        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!active) return;
-
-        setPlayerCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude });
-        setLocationError(null);
-
-        subscription = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, distanceInterval: 10, timeInterval: 3000 },
-          (next) => {
-            if (!active) return;
-            setPlayerCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
-            setLocationError(null);
-          },
-        );
-      } catch {
-        if (active) setLocationError('Nie udało się ustalić lokalizacji.');
-      }
-    };
-
-    start();
-    return () => {
-      active = false;
-      subscription?.remove();
-    };
-  }, []);
-
+export function InitiativesScreen({
+  initiatives,
+  onNavigate,
+  onOpenInitiative,
+  playerLocation,
+  locationIssue,
+}) {
   const nearbyInitiatives = useMemo(() => {
-    if (!playerCoords) return [];
+    if (!playerLocation?.coords) return [];
+
+    const playerCoords = {
+      latitude: playerLocation.coords.latitude,
+      longitude: playerLocation.coords.longitude,
+    };
 
     return initiatives
       .map((initiative) => {
@@ -131,7 +94,7 @@ export function InitiativesScreen({ initiatives, onNavigate, onOpenInitiative })
       })
       .filter((initiative) => initiative.actualDistanceMeters <= INITIATIVES_LIST_RADIUS_METERS)
       .sort((a, b) => a.actualDistanceMeters - b.actualDistanceMeters);
-  }, [initiatives, playerCoords]);
+  }, [initiatives, playerLocation]);
 
   return (
     <Shell active="initiatives" onNavigate={onNavigate}>
@@ -144,15 +107,20 @@ export function InitiativesScreen({ initiatives, onNavigate, onOpenInitiative })
           <MiniStat label="Przeszły" value={nearbyInitiatives.filter((i) => i.status === 'passed').length} />
         </View>
 
-        {locationError ? (
+        {locationIssue ? (
           <View style={styles.rangeInfo}>
             <Ionicons color={colors.warning} name="location-outline" size={19} />
-            <Text style={styles.rangeInfoText}>{locationError}</Text>
+            <Text style={styles.rangeInfoText}>{locationIssue}</Text>
           </View>
-        ) : nearbyInitiatives.length === 0 && playerCoords ? (
+        ) : nearbyInitiatives.length === 0 && playerLocation?.coords ? (
           <View style={styles.rangeInfo}>
             <Ionicons color={colors.signal} name="navigate-outline" size={19} />
             <Text style={styles.rangeInfoText}>Brak Inicjatyw w promieniu 500 m.</Text>
+          </View>
+        ) : !playerLocation?.coords ? (
+          <View style={styles.rangeInfo}>
+            <Ionicons color={colors.signal} name="locate-outline" size={19} />
+            <Text style={styles.rangeInfoText}>Ustalam bieżącą pozycję…</Text>
           </View>
         ) : (
           <View style={styles.list}>
