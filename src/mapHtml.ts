@@ -55,6 +55,30 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     map.scrollZoom.enable();
     map.touchZoomRotate.enable();
 
+    function makeRadiusPolygon(lng, lat, radiusMeters) {
+      const points = [];
+      const earth = 6378137;
+      const latRad = lat * Math.PI / 180;
+      for (let i = 0; i <= 64; i += 1) {
+        const angle = i / 64 * Math.PI * 2;
+        const dx = Math.cos(angle) * radiusMeters;
+        const dy = Math.sin(angle) * radiusMeters;
+        const dLat = dy / earth * 180 / Math.PI;
+        const dLng = dx / (earth * Math.cos(latRad)) * 180 / Math.PI;
+        points.push([lng + dLng, lat + dLat]);
+      }
+      return {
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [points] }
+      };
+    }
+
+    function updatePlayerRadius(lng, lat) {
+      const source = map.getSource('sitequest-player-radius');
+      if (source && source.setData) source.setData(makeRadiusPolygon(lng, lat, 50));
+    }
+
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
     const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
     let playerTransform = null;
@@ -302,78 +326,8 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       beaver.add(mesh(new THREE.BoxGeometry(0.17, 0.035, 0.022), jacketDark, [0.225, 0.80, 0.486], [1, 1, 1], [0, 0, 0.38]));
 
 
-      // Rounded rectangular backpack shell, beveled for a softer reference-like profile.
-      const backpackShape = new THREE.Shape();
-      backpackShape.moveTo(-0.31, 0.64);
-      backpackShape.quadraticCurveTo(-0.38, 0.67, -0.38, 0.80);
-      backpackShape.lineTo(-0.38, 1.20);
-      backpackShape.quadraticCurveTo(-0.36, 1.32, -0.23, 1.35);
-      backpackShape.quadraticCurveTo(0, 1.40, 0.23, 1.35);
-      backpackShape.quadraticCurveTo(0.36, 1.32, 0.38, 1.20);
-      backpackShape.lineTo(0.38, 0.80);
-      backpackShape.quadraticCurveTo(0.38, 0.67, 0.31, 0.64);
-      backpackShape.closePath();
-      const backpackGeometry = new THREE.ExtrudeGeometry(backpackShape, {
-        depth: 0.18,
-        steps: 1,
-        bevelEnabled: true,
-        bevelSegments: 5,
-        bevelSize: 0.045,
-        bevelThickness: 0.032,
-        curveSegments: 16,
-      });
-      const backpackBody = mesh(backpackGeometry, backpackPurple, [0, 0, -0.69]);
-      beaver.add(backpackBody);
-
-      // Rounded external pocket on the rear face.
-      const pocketShape = new THREE.Shape();
-      pocketShape.moveTo(-0.24, 0.66);
-      pocketShape.quadraticCurveTo(-0.27, 0.67, -0.27, 0.72);
-      pocketShape.lineTo(-0.27, 0.88);
-      pocketShape.quadraticCurveTo(-0.26, 0.94, -0.19, 0.95);
-      pocketShape.lineTo(0.19, 0.95);
-      pocketShape.quadraticCurveTo(0.26, 0.94, 0.27, 0.88);
-      pocketShape.lineTo(0.27, 0.72);
-      pocketShape.quadraticCurveTo(0.27, 0.67, 0.24, 0.66);
-      pocketShape.closePath();
-      const pocketGeometry = new THREE.ExtrudeGeometry(pocketShape, {
-        depth: 0.035,
-        steps: 1,
-        bevelEnabled: true,
-        bevelSegments: 3,
-        bevelSize: 0.020,
-        bevelThickness: 0.015,
-        curveSegments: 12,
-      });
-      beaver.add(mesh(pocketGeometry, backpackDark, [0, 0, -0.735]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.34, 0.018, 0.016), backpackTrim, [0, 0.88, -0.755]));
-
-      // Visible fabric handle above the backpack.
-      beaver.add(mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.15, 10), backpackTrim, [-0.075, 1.40, -0.695]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.020, 0.020, 0.15, 10), backpackTrim, [0.075, 1.40, -0.695]));
-      beaver.add(mesh(new THREE.BoxGeometry(0.17, 0.035, 0.035), backpackTrim, [0, 1.47, -0.695]));
-
-      // Curved padded backpack straps following the shoulders like the reference.
-      const addFrontStrap = (side) => {
-        const curve = new THREE.CatmullRomCurve3([
-          new THREE.Vector3(side * 0.29, 1.28, 0.425),
-          new THREE.Vector3(side * 0.335, 1.15, 0.515),
-          new THREE.Vector3(side * 0.325, 0.99, 0.540),
-          new THREE.Vector3(side * 0.30, 0.86, 0.525),
-        ]);
-        const strap = new THREE.Mesh(new THREE.TubeGeometry(curve, 22, 0.040, 10, false), backpackPurple);
-        beaver.add(strap);
-        beaver.add(mesh(new THREE.BoxGeometry(0.070, 0.055, 0.032), backpackTrim, [side * 0.305, 0.92, 0.565]));
-      };
-      addFrontStrap(-1);
-      addFrontStrap(1);
-
-      // Rear vest shoulder pad smooths the neck-to-back transition under the backpack.
+      // Backpack intentionally omitted in the MVP avatar.\n\n      // Rear vest shoulder pad smooths the neck-to-back transition under the backpack.
       beaver.add(mesh(new THREE.SphereGeometry(0.28, 24, 18), jacketBlue, [0, 1.18, -0.20], [1.05, 0.44, 0.28]));
-
-      // Rear-visible padded shoulder straps hugging the jacket.
-      beaver.add(mesh(new THREE.CylinderGeometry(0.036, 0.042, 0.48, 12), backpackTrim, [-0.34, 1.08, -0.735], [1.0, 1.0, 0.72], [0.08, 0, -0.12]));
-      beaver.add(mesh(new THREE.CylinderGeometry(0.036, 0.042, 0.48, 12), backpackTrim, [0.34, 1.08, -0.735], [1.0, 1.0, 0.72], [0.08, 0, 0.12]));
 
       // Arms: chunky cylinders + round paws, compatible with trot animation.
       const leftArm = mesh(new THREE.CylinderGeometry(0.105, 0.125, 0.40, 16), fur, [-0.50, 0.88, 0.08], [1, 1, 1], [0, 0, -0.34]);
@@ -959,6 +913,24 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
     map.on('load', () => {
       tuneBaseStyle();
+      if (!map.getSource('sitequest-player-radius')) {
+        map.addSource('sitequest-player-radius', {
+          type: 'geojson',
+          data: makeRadiusPolygon(playerPosition[0], playerPosition[1], 50)
+        });
+        map.addLayer({
+          id: 'sitequest-player-radius-fill',
+          type: 'fill',
+          source: 'sitequest-player-radius',
+          paint: { 'fill-color': '#2F6BFF', 'fill-opacity': 0.08 }
+        });
+        map.addLayer({
+          id: 'sitequest-player-radius-line',
+          type: 'line',
+          source: 'sitequest-player-radius',
+          paint: { 'line-color': '#2F6BFF', 'line-width': 2, 'line-opacity': 0.52 }
+        });
+      }
       const sourceId = map.getSource('openmaptiles')
         ? 'openmaptiles'
         : Object.keys(map.getStyle().sources || {}).find((id) => map.getSource(id)?.type === 'vector');
@@ -1001,6 +973,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const isFirstFix = !playerHasFix;
       playerHasFix = true;
       updatePlayerTransform(lng, lat, isFirstFix);
+      updatePlayerRadius(lng, lat);
       map.triggerRepaint();
 
       if (isFirstFix || centerMap) {
