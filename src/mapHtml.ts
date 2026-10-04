@@ -91,6 +91,20 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     let userInteractingWithMap = false;
     let headingResumeAt = 0;
     let playerIsMoving = false;
+    let playerMovement = null;
+
+    function geographicDistanceMeters(fromLng, fromLat, toLng, toLat) {
+      const earthRadius = 6371000;
+      const toRadians = (value) => value * Math.PI / 180;
+      const lat1 = toRadians(fromLat);
+      const lat2 = toRadians(toLat);
+      const dLat = toRadians(toLat - fromLat);
+      const dLng = toRadians(toLng - fromLng);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+        + Math.cos(lat1) * Math.cos(lat2)
+        * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
 
     function getPlayerElevation(lng, lat) {
       try {
@@ -116,11 +130,23 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       };
     }
 
-    function updatePlayerTransform(lng, lat, immediate = false) {
+    function updatePlayerTransform(lng, lat, immediate = false, duration = 0) {
       playerTargetTransform = createPlayerTransform(lng, lat);
+
       if (!playerTransform || immediate) {
         playerTransform = { ...playerTargetTransform };
+        playerMovement = null;
+        playerIsMoving = false;
+        return;
       }
+
+      playerMovement = {
+        from: { ...playerTransform },
+        to: { ...playerTargetTransform },
+        startedAt: performance.now(),
+        duration: Math.max(360, duration || 900),
+      };
+      playerIsMoving = true;
     }
 
     // BEAVER_MODEL_START
@@ -669,12 +695,27 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
         this.camera.projectionMatrix = mapMatrix.multiply(modelMatrix);
 
-        if (playerTargetTransform) {
-          const follow = playerIsMoving ? 0.14 : 0.22;
-          playerTransform.translateX += (playerTargetTransform.translateX - playerTransform.translateX) * follow;
-          playerTransform.translateY += (playerTargetTransform.translateY - playerTransform.translateY) * follow;
-          playerTransform.translateZ += (playerTargetTransform.translateZ - playerTransform.translateZ) * follow;
-          playerTransform.scale += (playerTargetTransform.scale - playerTransform.scale) * follow;
+        if (playerMovement) {
+          const elapsed = performance.now() - playerMovement.startedAt;
+          const linearProgress = Math.min(1, elapsed / playerMovement.duration);
+          const progress = linearProgress < 0.5
+            ? 4 * linearProgress * linearProgress * linearProgress
+            : 1 - Math.pow(-2 * linearProgress + 2, 3) / 2;
+
+          playerTransform.translateX = playerMovement.from.translateX
+            + (playerMovement.to.translateX - playerMovement.from.translateX) * progress;
+          playerTransform.translateY = playerMovement.from.translateY
+            + (playerMovement.to.translateY - playerMovement.from.translateY) * progress;
+          playerTransform.translateZ = playerMovement.from.translateZ
+            + (playerMovement.to.translateZ - playerMovement.from.translateZ) * progress;
+          playerTransform.scale = playerMovement.from.scale
+            + (playerMovement.to.scale - playerMovement.from.scale) * progress;
+
+          if (linearProgress >= 1) {
+            playerTransform = { ...playerMovement.to };
+            playerMovement = null;
+            playerIsMoving = false;
+          }
         }
 
         const time = performance.now() * 0.001;
@@ -816,10 +857,22 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     }
 
     function movePlayer(lng, lat, centerMap = true) {
-      playerPosition = [lng, lat];
       const isFirstFix = !playerHasFix;
+      const previousPosition = playerPosition;
+      const distance = isFirstFix
+        ? Infinity
+        : geographicDistanceMeters(previousPosition[0], previousPosition[1], lng, lat);
+
+      playerPosition = [lng, lat];
       playerHasFix = true;
-      updatePlayerTransform(lng, lat, isFirstFix);
+
+      if (isFirstFix || distance > 500) {
+        updatePlayerTransform(lng, lat, true);
+      } else {
+        const walkDuration = Math.min(4200, Math.max(650, 650 + distance * 7));
+        updatePlayerTransform(lng, lat, false, walkDuration);
+      }
+
       updatePlayerRadius(lng, lat);
       map.triggerRepaint();
 
@@ -831,7 +884,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
 
       if (playerAnchored) {
-        syncAnchoredCamera(isFirstFix ? 700 : 420, isFirstFix);
+        const cameraDuration = isFirstFix || distance > 500
+          ? 700
+          : Math.min(1600, Math.max(420, 420 + distance * 2));
+        syncAnchoredCamera(cameraDuration, isFirstFix);
       }
     }
     window.movePlayer = movePlayer;
