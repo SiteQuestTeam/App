@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { mockAiQuestions } from '../data';
 import { colors, fonts } from '../theme';
@@ -19,7 +20,9 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
   const [people, setPeople] = useState('2–3 osoby do przygotowania miejsca');
   const [equipment, setEquipment] = useState('ławka, donice, rośliny, podstawowe narzędzia');
   const [transport, setTransport] = useState('transport ławki i roślin');
-  const [fixer, setFixer] = useState<Fixer>('Miasto');
+  const [needsCity, setNeedsCity] = useState(true);
+  const [needsGuild, setNeedsGuild] = useState(false);
+  const fixer: Fixer = needsCity ? 'Miasto' : needsGuild ? 'Gildia' : 'Gracze';
   const [place, setPlace] = useState('Okolice TAURON Areny, Kraków');
 
   useEffect(() => {
@@ -42,12 +45,23 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
     }
   };
 
-  const publish = () => {
+  const publish = async () => {
+    let latitude = 50.06772;
+    let longitude = 19.99215;
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.granted) {
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        latitude = current.coords.latitude;
+        longitude = current.coords.longitude;
+      }
+    } catch {}
+
     const initiative: Initiative = {
       id: `initiative-${Date.now()}`,
       initiator: 'Gracz Demo',
-      latitude: 50.06772,
-      longitude: 19.99215,
+      latitude,
+      longitude,
       votes: 0,
       threshold: 10,
       status: 'collecting',
@@ -141,14 +155,20 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
           <Field label="Transport" value={transport} onChangeText={setTransport} />
 
           <Text style={styles.sectionLabel}>Kto naprawi?</Text>
-          <Text style={styles.helperSmall}>AI sugeruje wykonawcę, ale decyzję potwierdza Gracz.</Text>
-          <View style={styles.fixerRow}>
-            {(['Miasto', 'Gildia', 'Gracze'] as Fixer[]).map((value) => (
-              <Pressable key={value} onPress={() => setFixer(value)} style={[styles.fixer, fixer === value && styles.fixerActive]}>
-                <Text style={[styles.fixerText, fixer === value && styles.fixerTextActive]}>{value}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text style={styles.helperSmall}>Dwa pytania tak/nie. AI sugeruje odpowiedzi, ale Gracz je potwierdza.</Text>
+          <DecisionRow
+            label="Czy potrzebna jest zgoda, infrastruktura lub budżet Miasta?"
+            value={needsCity}
+            onChange={setNeedsCity}
+          />
+          {!needsCity && (
+            <DecisionRow
+              label="Czy potrzebne są specjalistyczne umiejętności lub narzędzia Gildii?"
+              value={needsGuild}
+              onChange={setNeedsGuild}
+            />
+          )}
+          <View style={styles.fixerResult}><Text style={styles.fixerResultLabel}>WYNIK</Text><Text style={styles.fixerResultValue}>{fixer}</Text></View>
 
           <Field label="Miejsce" value={place} onChangeText={setPlace} />
           <View style={styles.publishNote}><Ionicons color={colors.signal} name="star" size={20} /><Text style={styles.publishNoteText}>Mock MVP: publikacja doda pinezkę lokalnie i przyzna +100 Punktów.</Text></View>
@@ -157,6 +177,10 @@ export function CreatorScreen({ photoUri, onCamera, onClose, onPublish }) {
       )}
     </KeyboardAvoidingView>
   );
+}
+
+function DecisionRow({ label, value, onChange }) {
+  return <View style={styles.decisionCard}><Text style={styles.decisionLabel}>{label}</Text><View style={styles.decisionButtons}><Pressable onPress={() => onChange(true)} style={[styles.decisionButton, value && styles.decisionButtonActive]}><Text style={[styles.decisionText, value && styles.decisionTextActive]}>Tak</Text></Pressable><Pressable onPress={() => onChange(false)} style={[styles.decisionButton, !value && styles.decisionButtonActive]}><Text style={[styles.decisionText, !value && styles.decisionTextActive]}>Nie</Text></Pressable></View></View>;
 }
 
 function Field({ label, multiline = false, ...props }) {
@@ -190,6 +214,6 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 96 },
   field: { marginTop: 17 }, label: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 0.5, marginBottom: 7, textTransform: 'uppercase' },
   sectionLabel: { color: colors.ink, fontFamily: fonts.heading, fontSize: 18, marginTop: 26 },
-  fixerRow: { flexDirection: 'row', gap: 8, marginTop: 12 }, fixer: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 999, borderWidth: 1, flex: 1, paddingVertical: 11 }, fixerActive: { backgroundColor: colors.signal, borderColor: colors.signal }, fixerText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 12 }, fixerTextActive: { color: colors.surface },
+  decisionCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: 17, borderWidth: 1, marginTop: 12, padding: 14 }, decisionLabel: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 }, decisionButtons: { flexDirection: 'row', gap: 8, marginTop: 10 }, decisionButton: { alignItems: 'center', backgroundColor: colors.greySoft, borderRadius: 999, flex: 1, paddingVertical: 9 }, decisionButtonActive: { backgroundColor: colors.signal }, decisionText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 11 }, decisionTextActive: { color: colors.surface }, fixerResult: { alignItems: 'center', backgroundColor: colors.violetSoft, borderRadius: 16, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, padding: 13 }, fixerResultLabel: { color: colors.violet, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 1 }, fixerResultValue: { color: colors.ink, fontFamily: fonts.heading, fontSize: 16 },
   publishNote: { alignItems: 'center', backgroundColor: colors.blueSoft, borderRadius: 16, flexDirection: 'row', gap: 10, marginTop: 20, padding: 14 }, publishNoteText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 18 },
 });
