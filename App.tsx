@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -19,6 +19,7 @@ export default function App() {
   useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
   useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
   const [accessReady, setAccessReady] = useState(false);
+  const lastKnownLocationRef = useRef<Location.LocationObject | null>(null);
   const [playerLocation, setPlayerLocation] = useState<Location.LocationObject | null>(null);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenName>('signin');
@@ -48,6 +49,7 @@ export default function App() {
         });
 
         if (active && cached) {
+          lastKnownLocationRef.current = cached;
           setPlayerLocation((current) => current || cached);
         }
 
@@ -90,14 +92,19 @@ export default function App() {
           },
           (next) => {
             if (!active) return;
+            lastKnownLocationRef.current = next;
             setPlayerLocation(next);
             setLocationIssue(null);
           },
         );
       } catch {
         if (active) {
+          const fallback = lastKnownLocationRef.current || cached;
+          if (fallback) {
+            setPlayerLocation(fallback);
+          }
           setLocationIssue(
-            cached || playerLocation
+            fallback
               ? 'Brak sygnału GPS — ostatnia znana lokalizacja'
               : 'Brak sygnału GPS',
           );
