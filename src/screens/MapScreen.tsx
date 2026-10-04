@@ -141,10 +141,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             <Ionicons color={anchored ? colors.surface : colors.signal} name={locationIssue ? 'warning-outline' : 'locate'} size={22} />
           </Pressable>
 
-          <Pressable onPress={onCreate} style={styles.createAction}>
-            <Ionicons color={colors.surface} name="camera" size={21} />
-            <Text style={styles.createText}>Nowa Inicjatywa</Text>
-          </Pressable>
         </View>
 
         {locationIssue && (
@@ -169,6 +165,15 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
           </Pressable>
         )}
       </View>
+
+      <Pressable
+        accessibilityLabel="Dodaj inicjatywę"
+        accessibilityRole="button"
+        onPress={onCreate}
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+      >
+        <Ionicons color={colors.surface} name="add" size={32} />
+      </Pressable>
 
       <BottomNav active="map" onSelect={onNavigate} />
     </View>
@@ -195,8 +200,8 @@ const styles = StyleSheet.create({
   actions: { alignItems: 'flex-end', bottom: 146, gap: 9, position: 'absolute', right: 12 },
   roundAction: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: 25, height: 50, justifyContent: 'center', width: 50, ...shadow },
   roundActionActive: { backgroundColor: colors.signal },
-  createAction: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 999, flexDirection: 'row', gap: 7, paddingHorizontal: 14, paddingVertical: 12, ...shadow },
-  createText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 11 },
+  fab: { alignItems: 'center', backgroundColor: colors.signal, borderColor: colors.surface, borderRadius: 31, borderWidth: 5, bottom: 62, height: 62, justifyContent: 'center', left: '50%', marginLeft: -31, position: 'absolute', width: 62, zIndex: 20, ...shadow },
+  fabPressed: { opacity: 0.82, transform: [{ scale: 0.96 }] },
   locationIssue: { backgroundColor: '#FFF5DF', borderRadius: 999, bottom: 146, left: 12, paddingHorizontal: 11, paddingVertical: 8, position: 'absolute' },
   locationIssueText: { color: colors.warning, fontFamily: fonts.bodyBold, fontSize: 10 },
   quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, bottom: 12, flexDirection: 'row', gap: 12, left: 12, padding: 13, position: 'absolute', right: 12, ...shadow },
