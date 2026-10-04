@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useFonts as useInterFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -8,21 +8,19 @@ import { DetailScreen } from './src/screens/DetailScreen';
 import { CreatorScreen } from './src/screens/CreatorScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
 import { IncidentScreen } from './src/screens/IncidentScreen';
-import { StartupStateScreen } from './src/screens/StartupStateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { initiatives as initialInitiatives } from './src/data';
 import type { Initiative, PlayerState, ScreenName } from './src/types';
 
 export default function App() {
-  const [manropeLoaded] = useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
-  const [interLoaded] = useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
+  useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
+  useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
   const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('tea');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [incidentPhotoUri, setIncidentPhotoUri] = useState<string | undefined>();
   const [cameraTarget, setCameraTarget] = useState<'initiative' | 'incident'>('initiative');
-  const [mapLoading, setMapLoading] = useState(true);
   const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
   const [player, setPlayer] = useState<PlayerState>({
     nickname: 'Gracz Demo',
@@ -36,22 +34,7 @@ export default function App() {
     [initiatives, selectedId],
   );
 
-  if (!manropeLoaded || !interLoaded) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar backgroundColor={colors.surface} barStyle="dark-content" />
-        <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-          <StartupStateScreen
-            title="Uruchamiamy SideQuest"
-            body="Przygotowujemy aplikację i mapę. To potrwa tylko chwilę."
-          />
-        </SafeAreaView>
-      </SafeAreaProvider>
-    );
-  }
-
   const navigateTo = (next: ScreenName) => {
-    if (next === 'map') setMapLoading(true);
     setScreen(next);
   };
 
@@ -104,7 +87,6 @@ export default function App() {
             initiatives={initiatives}
             onCreate={() => setScreen('creator')}
             onCreateIncident={() => setScreen('incident')}
-            onLoadingChange={setMapLoading}
             onNavigate={navigateTo}
             onOpenInitiative={openInitiative}
             player={player}
@@ -164,49 +146,16 @@ export default function App() {
     }
   };
 
-  const showMapLoading = screen === 'map' && mapLoading;
-
   return (
     <SafeAreaProvider>
-      <View style={styles.appRoot}>
-        <StatusBar
-          backgroundColor={showMapLoading ? colors.background : screen === 'camera' ? '#000' : colors.surface}
-          barStyle={screen === 'camera' && !showMapLoading ? 'light-content' : 'dark-content'}
-          translucent={showMapLoading}
-        />
-
-        <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
-          {renderScreen()}
-        </SafeAreaView>
-
-        <Modal
-          animationType="fade"
-          navigationBarTranslucent
-          onRequestClose={() => {}}
-          presentationStyle="fullScreen"
-          statusBarTranslucent
-          transparent={false}
-          visible={showMapLoading}
-        >
-          <View style={styles.mapLoadingFullscreen}>
-            <StartupStateScreen
-              title="Ładowanie mapy…"
-              body="Ustalamy Twoją lokalizację i przygotowujemy najbliższe miejsca."
-            />
-          </View>
-        </Modal>
-      </View>
+      <StatusBar backgroundColor={screen === 'camera' ? '#000' : colors.surface} barStyle={screen === 'camera' ? 'light-content' : 'dark-content'} />
+      <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
+        {renderScreen()}
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  appRoot: { backgroundColor: colors.background, flex: 1 },
   safeArea: { backgroundColor: colors.surface, flex: 1 },
-  mapLoadingFullscreen: {
-    backgroundColor: colors.background,
-    flex: 1,
-    minHeight: '100%',
-    width: '100%',
-  },
 });
