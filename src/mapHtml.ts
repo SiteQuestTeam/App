@@ -856,6 +856,13 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
       if (!map.getLayer(initiativeFlatLayer.id)) map.addLayer(initiativeFlatLayer);
       if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
+
+      if (playerHasFix) {
+        updatePlayerRadius(playerPosition[0], playerPosition[1]);
+      } else {
+        setPlayerRadiusVisible(false);
+      }
+
       send('ready');
     });
 
