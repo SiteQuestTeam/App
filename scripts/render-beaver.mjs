@@ -45,6 +45,7 @@ modelSource +
 '\nbeaver.position.x-=center.x; beaver.position.z-=center.z;' +
 '\nconst fitHeight=Math.max(size.y,2.15); camera.position.z=4.65*(fitHeight/2.15); camera.lookAt(0,Math.min(1.08,size.y*0.50),0);' +
 '\nwindow.__beaverValidation={' +
+' validateTrot(){const parts=beaver.userData.trotParts;for(const name of ["leftFoot","rightFoot","leftArm","rightArm"]){const part=parts[name];if(part.children.length<2)throw new Error(name+" must move its complete paw");const saved=part.rotation.clone();beaver.updateMatrixWorld(true);const a=part.children[0].getWorldPosition(new THREE.Vector3());const b=part.children[1].getWorldPosition(new THREE.Vector3());const distance=a.distanceTo(b);part.rotation.x+=0.34;part.rotation.z+=0.14;beaver.updateMatrixWorld(true);const movedA=part.children[0].getWorldPosition(new THREE.Vector3());const movedB=part.children[1].getWorldPosition(new THREE.Vector3());if(Math.abs(movedA.distanceTo(movedB)-distance)>1e-6||movedB.distanceTo(b)<1e-5)throw new Error(name+" detached during trot");part.rotation.copy(saved);}beaver.updateMatrixWorld(true);return{limbs:4,attachedPaws:true};},' +
 ' setAngle(degrees){beaver.rotation.y=THREE.MathUtils.degToRad(degrees);renderer.render(scene,camera);},' +
 ' metrics(){let meshes=0,triangles=0;beaver.traverse((node)=>{if(!node.isMesh)return;meshes+=1;const p=node.geometry&&node.geometry.getAttribute&&node.geometry.getAttribute("position");const i=node.geometry&&node.geometry.index;if(i)triangles+=i.count/3;else if(p)triangles+=p.count/3;});const b=new THREE.Box3().setFromObject(beaver);const z=new THREE.Vector3();b.getSize(z);return{meshes,triangles:Math.round(triangles),width:Number(z.x.toFixed(3)),height:Number(z.y.toFixed(3)),depth:Number(z.z.toFixed(3))};}' +
 '};' +
@@ -73,6 +74,7 @@ for (const view of views) {
 }
 
 const metrics = await page.evaluate(() => window.__beaverValidation.metrics());
+const animation = await page.evaluate(() => window.__beaverValidation.validateTrot());
 await fs.writeFile(
   path.join(outDir, 'report.json'),
   JSON.stringify({
@@ -80,6 +82,7 @@ await fs.writeFile(
     source: 'src/mapHtml.ts::createBeaver3D',
     views: views.map((view) => ({ name: view[0], angle: view[1] })),
     metrics,
+    animation,
   }, null, 2),
 );
 
@@ -107,4 +110,4 @@ await overview.setContent(overviewHtml, { waitUntil: 'load' });
 await overview.screenshot({ path: path.join(outDir, 'overview.png'), fullPage: true });
 
 await browser.close();
-console.log(JSON.stringify({ outDir, metrics, views }, null, 2));
+console.log(JSON.stringify({ outDir, metrics, animation, views }, null, 2));
