@@ -7,7 +7,7 @@ import { MapScreen } from './src/screens/MapScreen';
 import { DetailScreen } from './src/screens/DetailScreen';
 import { CreatorScreen } from './src/screens/CreatorScreen';
 import { CameraScreen } from './src/screens/CameraScreen';
-import { InitiativesScreen, ProfileScreen, RewardsScreen } from './src/screens/TabScreens';
+import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
 import { initiatives as initialInitiatives } from './src/data';
 import type { Initiative, PlayerState, ScreenName } from './src/types';
@@ -15,7 +15,7 @@ import type { Initiative, PlayerState, ScreenName } from './src/types';
 export default function App() {
   const [manropeLoaded] = useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
   const [interLoaded] = useInterFonts({ Inter_400Regular, Inter_500Medium, Inter_700Bold });
-  const [screen, setScreen] = useState<ScreenName>('map');
+  const [screen, setScreen] = useState<ScreenName>('signin');
   const [selectedId, setSelectedId] = useState('tea');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
@@ -41,6 +41,8 @@ export default function App() {
   };
 
   const vote = (id: string) => {
+    const target = initiatives.find((item) => item.id === id);
+    const willPass = Boolean(target && target.status !== 'passed' && !target.hasVoted && target.votes + 1 >= target.threshold);
     setInitiatives((current) => current.map((item) => {
       if (item.id !== id || item.hasVoted || item.status === 'passed') return item;
       const votes = Math.min(item.threshold, item.votes + 1);
@@ -55,8 +57,8 @@ export default function App() {
     }));
     setPlayer((current) => ({
       ...current,
-      pointsBalance: current.pointsBalance + 10,
-      totalPointsEarned: current.totalPointsEarned + 10,
+      pointsBalance: current.pointsBalance + 10 + (willPass ? 50 : 0),
+      totalPointsEarned: current.totalPointsEarned + 10 + (willPass ? 50 : 0),
     }));
   };
 
@@ -74,6 +76,8 @@ export default function App() {
 
   const renderScreen = () => {
     switch (screen) {
+      case 'signin':
+        return <SignInScreen nickname={player.nickname} onContinue={(nickname) => { setPlayer((p) => ({ ...p, nickname })); setScreen('map'); }} />;
       case 'map':
         return <MapScreen initiatives={initiatives} onCreate={() => setScreen('creator')} onNavigate={setScreen} onOpenInitiative={openInitiative} player={player} />;
       case 'initiatives':
