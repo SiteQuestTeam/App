@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav, InitiativeRow, PrimaryButton, StatusChip } from '../components';
 import { rewards } from '../data';
@@ -8,23 +8,39 @@ import { colors, fonts } from '../theme';
 export function SignInScreen({ nickname, onContinue }) {
   const [value, setValue] = useState(nickname === 'Gracz Demo' ? '' : nickname);
   return (
-    <View style={styles.signInScreen}>
-      <View style={styles.signInMark}><Ionicons color={colors.surface} name="location" size={30} /></View>
-      <Text style={styles.signInBrand}>SiteQuest</Text>
-      <Text style={styles.signInTitle}>Jak mamy Cię nazywać?</Text>
-      <Text style={styles.signInText}>MVP używa wyłącznie pseudonimu — bez hasła, maila i dodatkowych danych.</Text>
-      <TextInput
-        autoCapitalize="words"
-        maxLength={24}
-        onChangeText={setValue}
-        placeholder="Twój pseudonim"
-        placeholderTextColor={colors.muted}
-        style={styles.signInInput}
-        value={value}
-      />
-      <PrimaryButton disabled={!value.trim()} icon="arrow-forward" onPress={() => onContinue(value.trim())} style={styles.signInButton}>Zaczynam</PrimaryButton>
-      <Text style={styles.signInFoot}>W pełnej wersji logowanie może zostać rozszerzone o mObywatel; nie jest to część MVP.</Text>
-    </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+      style={styles.signInKeyboard}
+    >
+      <ScrollView
+        contentContainerStyle={styles.signInScreen}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.signInContent}>
+          <View style={styles.signInMark}><Ionicons color={colors.surface} name="location" size={30} /></View>
+          <Text style={styles.signInBrand}>SiteQuest</Text>
+          <Text style={styles.signInTitle}>Jak mamy Cię nazywać?</Text>
+          <Text style={styles.signInText}>MVP używa wyłącznie pseudonimu — bez hasła, maila i dodatkowych danych.</Text>
+          <TextInput
+            autoCapitalize="words"
+            maxLength={24}
+            onChangeText={setValue}
+            placeholder="Twój pseudonim"
+            placeholderTextColor={colors.muted}
+            returnKeyType="done"
+            style={styles.signInInput}
+            value={value}
+            onSubmitEditing={() => {
+              if (value.trim()) onContinue(value.trim());
+            }}
+          />
+          <PrimaryButton disabled={!value.trim()} icon="arrow-forward" onPress={() => onContinue(value.trim())} style={styles.signInButton}>Zaczynam</PrimaryButton>
+          <Text style={styles.signInFoot}>W pełnej wersji logowanie może zostać rozszerzone o mObywatel; nie jest to część MVP.</Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -119,7 +135,9 @@ function MiniStat({ label, value }) {
 }
 
 const styles = StyleSheet.create({
-  signInScreen: { backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: 26 },
+  signInKeyboard: { backgroundColor: colors.background, flex: 1 },
+  signInScreen: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 26, paddingVertical: 28 },
+  signInContent: { alignSelf: 'center', maxWidth: 520, width: '100%' },
   signInMark: { alignItems: 'center', backgroundColor: colors.signal, borderRadius: 29, height: 58, justifyContent: 'center', width: 58 },
   signInBrand: { color: colors.signal, fontFamily: fonts.headingExtra, fontSize: 18, marginTop: 14 },
   signInTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 30, lineHeight: 36, marginTop: 24 },
