@@ -55,7 +55,8 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
       .filter((item) => item.distance <= INITIATIVE_OPEN_RADIUS_METERS)
       .sort((a, b) => a.distance - b.distance);
   }, [initiatives, playerCoords]);
-  const quickCardWidth = Math.max(260, screenWidth - 40);
+  const quickCardWidth = Math.max(260, screenWidth - 32);
+  const quickCardSidePadding = Math.max(16, (screenWidth - quickCardWidth) / 2);
 
   useEffect(() => {
     createMenuProgress.stopAnimation();
@@ -258,11 +259,14 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         {nearbyInitiatives.length > 0 && (
           <View style={styles.nearbyCarousel}>
             <ScrollView
-              contentContainerStyle={styles.nearbyCarouselContent}
+              contentContainerStyle={[
+                styles.nearbyCarouselContent,
+                { paddingHorizontal: quickCardSidePadding },
+              ]}
               decelerationRate="fast"
               horizontal
               showsHorizontalScrollIndicator={false}
-              snapToInterval={quickCardWidth + 8}
+              snapToInterval={quickCardWidth + 12}
               snapToAlignment="start"
             >
               {nearbyInitiatives.map(({ initiative, distance }) => (
@@ -452,9 +456,23 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   proximityNoticeText: { color: colors.deep, flex: 1, fontFamily: fonts.bodyBold, fontSize: 11, lineHeight: 15 },
-  nearbyCarousel: { bottom: 12, left: 12, position: 'absolute', right: 0 },
-  nearbyCarouselContent: { gap: 8, paddingRight: 20 },
-  quickCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,.97)', borderColor: colors.border, borderRadius: 22, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 13, ...shadow },
+  nearbyCarousel: { bottom: 4, left: 0, overflow: 'visible', position: 'absolute', right: 0 },
+  nearbyCarouselContent: { gap: 12, paddingVertical: 10 },
+  quickCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: 'rgba(16,24,40,.07)',
+    borderRadius: 22,
+    borderWidth: 1,
+    elevation: 8,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 13,
+    shadowColor: '#101828',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+  },
   quickMarker: { alignItems: 'center', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 },
   quickMarkerText: { color: colors.surface, fontFamily: fonts.headingExtra, fontSize: 18 },
   quickCopy: { flex: 1 },
