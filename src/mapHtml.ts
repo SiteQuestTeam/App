@@ -131,6 +131,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     let headingResumeAt = 0;
     let playerIsMoving = false;
     let playerMovement = null;
+    let lastRadiusAnimationSyncAt = 0;
 
     function geographicDistanceMeters(fromLng, fromLat, toLng, toLat) {
       const earthRadius = 6371000;
@@ -155,6 +156,26 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const x = Math.cos(fromLatRad) * Math.sin(toLatRad)
         - Math.sin(fromLatRad) * Math.cos(toLatRad) * Math.cos(dLng);
       return (toDegrees(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function mercatorToLngLat(x, y) {
+      const lng = x * 360 - 180;
+      const y2 = 180 - y * 360;
+      const lat = 360 / Math.PI * Math.atan(Math.exp(y2 * Math.PI / 180)) - 90;
+      return [lng, lat];
+    }
+
+    function syncPlayerRadiusToRenderedTransform(force = false) {
+      if (!playerTransform || !playerHasFix) return;
+      const now = performance.now();
+      if (!force && now - lastRadiusAnimationSyncAt < 34) return;
+
+      lastRadiusAnimationSyncAt = now;
+      const [lng, lat] = mercatorToLngLat(
+        playerTransform.translateX,
+        playerTransform.translateY,
+      );
+      updatePlayerRadius(lng, lat);
     }
 
     function getPlayerElevation() {
@@ -763,10 +784,13 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           playerTransform.scale = playerMovement.from.scale
             + (playerMovement.to.scale - playerMovement.from.scale) * progress;
 
+          syncPlayerRadiusToRenderedTransform(linearProgress >= 1);
+
           if (linearProgress >= 1) {
             playerTransform = { ...playerMovement.to };
             playerMovement = null;
             playerIsMoving = false;
+            syncPlayerRadiusToRenderedTransform(true);
           }
         }
 
@@ -942,12 +966,13 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
       if (isFirstFix || distance > 500) {
         updatePlayerTransform(lng, lat, true);
+        updatePlayerRadius(lng, lat);
       } else {
         const walkDuration = Math.min(9000, Math.max(1150, 1150 + distance * 16));
         updatePlayerTransform(lng, lat, false, walkDuration);
+        syncPlayerRadiusToRenderedTransform(true);
       }
 
-      updatePlayerRadius(lng, lat);
       map.triggerRepaint();
 
       if (isFirstFix || centerMap) {
