@@ -35,20 +35,31 @@ export const MapViewport = forwardRef<any, any>(function MapViewport(
   const flattenedStyle = StyleSheet.flatten(style) || {};
 
   return (
-    <iframe
-      ref={iframeRef}
-      onError={onError}
-      onLoad={onLoadEnd}
-      srcDoc={html}
-      title="Mapa SiteQuest"
+    <div
       style={{
         ...flattenedStyle,
-        border: 0,
-        display: 'block',
-        height: '100%',
         minHeight: 0,
+        overflow: 'hidden',
+        position: 'relative',
         width: '100%',
       }}
-    />
+    >
+      <iframe
+        ref={iframeRef}
+        onError={onError}
+        onLoad={onLoadEnd}
+        srcDoc={html}
+        title="Mapa SiteQuest"
+        style={{
+          border: 0,
+          display: 'block',
+          height: '100%',
+          inset: 0,
+          minHeight: 0,
+          position: 'absolute',
+          width: '100%',
+        }}
+      />
+    </div>
   );
 });
