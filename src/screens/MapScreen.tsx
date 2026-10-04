@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { BottomNav, StatusChip } from '../components';
 import { createMapHtml } from '../mapHtml';
@@ -24,15 +23,21 @@ const distanceMeters = (
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate, onCreateIncident, player }) {
+export function MapScreen({
+  initiatives,
+  onNavigate,
+  onOpenInitiative,
+  onCreate,
+  onCreateIncident,
+  player,
+  playerLocation,
+  locationIssue,
+}) {
   const webView = useRef<any>(null);
-  const latestLocation = useRef<any>(null);
   const createMenuProgress = useRef(new Animated.Value(0)).current;
   const { width: screenWidth } = useWindowDimensions();
 
-  const [playerCoords, setPlayerCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapError, setMapError] = useState(false);
-  const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [anchored, setAnchored] = useState(false);
   const [activityFilter, setActivityFilter] = useState<'scouting' | 'raid' | 'quest'>('scouting');
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -42,19 +47,22 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const htmlKey = filtered.map((item) => item.id + ':' + item.votes + ':' + item.status).join('|');
   const html = useMemo(() => createMapHtml(filtered), [htmlKey]);
   const nearbyInitiatives = useMemo(() => {
-    if (!playerCoords) return [];
+    if (!playerLocation?.coords) return [];
 
     return initiatives
       .map((initiative) => ({
         initiative,
         distance: distanceMeters(
-          playerCoords,
+          {
+            latitude: playerLocation.coords.latitude,
+            longitude: playerLocation.coords.longitude,
+          },
           { latitude: initiative.latitude, longitude: initiative.longitude },
         ),
       }))
       .filter((item) => item.distance <= INITIATIVE_OPEN_RADIUS_METERS)
       .sort((a, b) => a.distance - b.distance);
-  }, [initiatives, playerCoords]);
+  }, [initiatives, playerLocation]);
   const quickCardWidth = Math.max(260, screenWidth - 32);
   const quickCardSidePadding = Math.max(16, (screenWidth - quickCardWidth) / 2);
 
@@ -77,67 +85,18 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   }, [createMenuOpen, createMenuProgress]);
 
   useEffect(() => {
-    let active = true;
-    let subscription: any = null;
+    const location = playerLocation?.coords;
 
-    setLocationIssue(null);
+    if (!location) {
+      webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
+      return;
+    }
 
-    const start = async () => {
-      try {
-        const enabled = await Location.hasServicesEnabledAsync();
-        if (!enabled) {
-          if (!active) return;
-          setLocationIssue('Wyłączony GPS');
-          setPlayerCoords(null);
-          webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
-          return;
-        }
-
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) {
-          if (!active) return;
-          setLocationIssue('Brak dostępu do GPS');
-          setPlayerCoords(null);
-          webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
-          return;
-        }
-
-        const first = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!active) return;
-
-        latestLocation.current = first;
-        setPlayerCoords({ latitude: first.coords.latitude, longitude: first.coords.longitude });
-        setLocationIssue(null);
-        webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(true);true;');
-        webView.current?.injectJavaScript(
-          'window.movePlayer && window.movePlayer(' + first.coords.longitude + ',' + first.coords.latitude + ',true);true;',
-        );
-
-        subscription = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.High, distanceInterval: 2, timeInterval: 1500 },
-          (next) => {
-            if (!active) return;
-            latestLocation.current = next;
-            setPlayerCoords({ latitude: next.coords.latitude, longitude: next.coords.longitude });
-            webView.current?.injectJavaScript(
-              'window.movePlayer && window.movePlayer(' + next.coords.longitude + ',' + next.coords.latitude + ',false);true;',
-            );
-          },
-        );
-      } catch {
-        if (!active) return;
-        setLocationIssue('Brak sygnału GPS');
-        setPlayerCoords(null);
-        webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
-      }
-    };
-
-    start();
-    return () => {
-      active = false;
-      subscription?.remove();
-    };
-  }, []);
+    webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(true);true;');
+    webView.current?.injectJavaScript(
+      'window.movePlayer && window.movePlayer(' + location.longitude + ',' + location.latitude + ',false);true;',
+    );
+  }, [playerLocation]);
 
   const handleMessage = (event) => {
     try {
@@ -147,7 +106,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         const initiative = initiatives.find((item) => item.id === message.id);
         if (!initiative) return;
 
-        const location = latestLocation.current;
+        const location = playerLocation;
         if (!location?.coords) {
           setProximityNotice('Włącz GPS, aby otworzyć tę Inicjatywę z mapy.');
           return;
@@ -192,11 +151,14 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             onHttpError={() => setMapError(true)}
             onMessage={handleMessage}
             onLoadEnd={() => {
-              const loc = latestLocation.current;
+              const loc = playerLocation?.coords;
               if (loc) {
+                webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(true);true;');
                 webView.current?.injectJavaScript(
-                  'window.movePlayer && window.movePlayer(' + loc.coords.longitude + ',' + loc.coords.latitude + ',true);true;',
+                  'window.movePlayer && window.movePlayer(' + loc.longitude + ',' + loc.latitude + ',true);true;',
                 );
+              } else {
+                webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
               }
             }}
             originWhitelist={['*']}
