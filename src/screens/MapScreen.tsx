@@ -140,6 +140,10 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
     try {
       const message = JSON.parse(event.nativeEvent.data);
 
+      if (message.type === 'ready') {
+        setMapReady(true);
+      }
+
       if (message.type === 'initiative') {
         const initiative = initiatives.find((item) => item.id === message.id);
         if (!initiative) return;
@@ -197,7 +201,6 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             }}
             onMessage={handleMessage}
             onLoadEnd={() => {
-              setMapReady(true);
               const loc = latestLocation.current;
               if (loc) {
                 webView.current?.injectJavaScript(
