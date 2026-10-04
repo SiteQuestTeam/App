@@ -37,11 +37,16 @@ export default function App() {
 
   if (!manropeLoaded || !interLoaded) {
     return (
-      <StartupStateScreen
-        mode="loading"
-        title="Uruchamiamy SideQuest"
-        body="Przygotowujemy aplikację i mapę. To potrwa tylko chwilę."
-      />
+      <SafeAreaProvider>
+        <StatusBar backgroundColor={colors.surface} barStyle="dark-content" />
+        <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+          <StartupStateScreen
+            mode="loading"
+            title="Uruchamiamy SideQuest"
+            body="Przygotowujemy aplikację i mapę. To potrwa tylko chwilę."
+          />
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   }
 
