@@ -63,6 +63,7 @@ export interface Reward {
 }
 
 export interface PlayerState {
+  id: string;
   nickname: string;
   pointsBalance: number;
   totalPointsEarned: number;

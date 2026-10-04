@@ -2,11 +2,23 @@ import { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNav, InitiativeRow, PrimaryButton, StatusChip } from '../components';
-import { rewards } from '../data';
 import { colors, fonts } from '../theme';
+import type { Reward, ScreenName } from '../types';
 
 export function SignInScreen({ nickname, onContinue }) {
   const [value, setValue] = useState(nickname === 'Gracz Demo' ? '' : nickname);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!value.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await onContinue(value.trim());
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -25,18 +37,18 @@ export function SignInScreen({ nickname, onContinue }) {
           <Text style={styles.signInText}>MVP używa wyłącznie pseudonimu — bez hasła, maila i dodatkowych danych.</Text>
           <TextInput
             autoCapitalize="words"
-            maxLength={24}
+            maxLength={32}
             onChangeText={setValue}
             placeholder="Twój pseudonim"
             placeholderTextColor={colors.muted}
             returnKeyType="done"
             style={styles.signInInput}
             value={value}
-            onSubmitEditing={() => {
-              if (value.trim()) onContinue(value.trim());
-            }}
+            onSubmitEditing={() => void submit()}
           />
-          <PrimaryButton disabled={!value.trim()} icon="arrow-forward" onPress={() => onContinue(value.trim())} style={styles.signInButton}>Zaczynam</PrimaryButton>
+          <PrimaryButton disabled={!value.trim() || submitting} icon="arrow-forward" onPress={() => void submit()} style={styles.signInButton}>
+            {submitting ? 'Łączenie…' : 'Zaczynam'}
+          </PrimaryButton>
           <Text style={styles.signInFoot}>W pełnej wersji logowanie może zostać rozszerzone o mObywatel; nie jest to część MVP.</Text>
         </View>
       </ScrollView>
@@ -138,13 +150,32 @@ export function InitiativesScreen({
   );
 }
 
-export function RewardsScreen({ onNavigate, player, onRedeem }) {
+export function RewardsScreen({
+  onNavigate,
+  player,
+  rewards,
+  onRedeem,
+}: {
+  onNavigate: (screen: ScreenName) => void;
+  player: any;
+  rewards: Reward[];
+  onRedeem: (rewardId: string) => Promise<void>;
+}) {
   const [redeemed, setRedeemed] = useState<string[]>([]);
-  const redeem = (reward) => {
-    if (player.pointsBalance < reward.points || redeemed.includes(reward.id)) return;
-    onRedeem(reward.points);
-    setRedeemed((r) => [...r, reward.id]);
-    Alert.alert('Nagroda odebrana', `${reward.title} — mock MVP.`);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const redeem = async (reward: Reward) => {
+    if (player.pointsBalance < reward.points || redeemed.includes(reward.id) || busyId) return;
+    setBusyId(reward.id);
+    try {
+      await onRedeem(reward.id);
+      setRedeemed((current) => [...current, reward.id]);
+      Alert.alert('Nagroda odebrana', reward.title);
+    } catch (error) {
+      Alert.alert('Nie udało się odebrać Nagrody', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -162,15 +193,17 @@ export function RewardsScreen({ onNavigate, player, onRedeem }) {
             const available = player.pointsBalance >= reward.points && !redeemed.includes(reward.id);
             return (
               <View key={reward.id} style={styles.rewardCard}>
-                <View style={styles.rewardTop}><View style={styles.rewardIcon}><Ionicons color={colors.signal} name={reward.icon} size={23} /></View><StatusChip tone={available ? 'green' : 'grey'}>{reward.points} pkt</StatusChip></View>
+                <View style={styles.rewardTop}><View style={styles.rewardIcon}><Ionicons color={colors.signal} name={reward.icon as any} size={23} /></View><StatusChip tone={available ? 'green' : 'grey'}>{reward.points} pkt</StatusChip></View>
                 <Text style={styles.rewardTitle}>{reward.title}</Text><Text style={styles.rewardDesc}>{reward.description}</Text>
                 <Text style={styles.sponsor}>Sponsor: {reward.sponsor}</Text>
-                <PrimaryButton disabled={!available} onPress={() => redeem(reward)} style={styles.rewardButton}>{redeemed.includes(reward.id) ? 'Odebrano' : available ? 'Odbierz' : 'Za mało Punktów'}</PrimaryButton>
+                <PrimaryButton disabled={!available || busyId === reward.id} onPress={() => void redeem(reward)} style={styles.rewardButton}>
+                  {busyId === reward.id ? 'Odbieranie…' : redeemed.includes(reward.id) ? 'Odebrano' : available ? 'Odbierz' : 'Za mało Punktów'}
+                </PrimaryButton>
               </View>
             );
           })}
         </View>
-        <Text style={styles.demo}>Nagrody i Sponsorzy są lokalnymi danymi demonstracyjnymi.</Text>
+        {rewards.length === 0 ? <Text style={styles.demo}>Brak aktywnych Nagród.</Text> : null}
       </ScrollView>
     </Shell>
   );
@@ -195,9 +228,9 @@ export function ProfileScreen({ onNavigate, player }) {
         <View style={styles.rankCard}>
           <View style={styles.rankHeader}><Text style={styles.rankTitle}>Postęp Rangi</Text><Text style={styles.rankValue}>{player.totalPointsEarned} / 2000</Text></View>
           <View style={styles.rankTrack}><View style={[styles.rankFill, { width: `${Math.round(progress * 100)}%` }]} /></View>
-          <Text style={styles.rankBody}>Mock: kolejny próg Rangi przy 2000 Punktów zdobytych łącznie.</Text>
+          <Text style={styles.rankBody}>Ranga jest liczona na serwerze z wszystkich Punktów zdobytych kiedykolwiek.</Text>
         </View>
-        <View style={styles.infoCard}><Ionicons color={colors.signal} name="information-circle-outline" size={22} /><Text style={styles.infoText}>MVP nie używa XP, kredytów ani osobnego konta NGO. Gracz ma Punkty, Rangę i Nagrody.</Text></View>
+        <View style={styles.infoCard}><Ionicons color={colors.signal} name="information-circle-outline" size={22} /><Text style={styles.infoText}>MVP nie używa XP ani kredytów. Gracz ma Punkty, Rangę i Nagrody.</Text></View>
       </ScrollView>
     </Shell>
   );

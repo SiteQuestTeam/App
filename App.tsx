@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
+import { Alert, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
@@ -12,8 +12,27 @@ import { IncidentScreen } from './src/screens/IncidentScreen';
 import { PermissionGateScreen } from './src/screens/PermissionGateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
-import { initiatives as initialInitiatives } from './src/data';
-import type { Initiative, PlayerState, ScreenName } from './src/types';
+import {
+  createInitiative,
+  createSession,
+  getPlayer,
+  listInitiatives,
+  listRewards,
+  prepareKck,
+  redeemReward,
+  submitKck,
+  uploadInitiativePhoto,
+  voteInitiative,
+} from './src/api';
+import type { Initiative, KckIncidentDraft, PlayerState, Reward, ScreenName } from './src/types';
+
+const EMPTY_PLAYER: PlayerState = {
+  id: '',
+  nickname: 'Gracz Demo',
+  pointsBalance: 0,
+  totalPointsEarned: 0,
+  rank: 'Nowy Gracz',
+};
 
 export default function App() {
   useManropeFonts({ Manrope_700Bold, Manrope_800ExtraBold });
@@ -23,17 +42,13 @@ export default function App() {
   const [playerLocation, setPlayerLocation] = useState<Location.LocationObject | null>(null);
   const [locationIssue, setLocationIssue] = useState<string | null>(null);
   const [screen, setScreen] = useState<ScreenName>('signin');
-  const [selectedId, setSelectedId] = useState('tea');
+  const [selectedId, setSelectedId] = useState('');
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [incidentPhotoUri, setIncidentPhotoUri] = useState<string | undefined>();
   const [cameraTarget, setCameraTarget] = useState<'initiative' | 'incident'>('initiative');
-  const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
-  const [player, setPlayer] = useState<PlayerState>({
-    nickname: 'Gracz Demo',
-    pointsBalance: 860,
-    totalPointsEarned: 1460,
-    rank: 'Sąsiedzki Inicjator',
-  });
+  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [player, setPlayer] = useState<PlayerState>(EMPTY_PLAYER);
 
   useEffect(() => {
     if (!accessReady) return;
@@ -125,8 +140,49 @@ export default function App() {
     [initiatives, selectedId],
   );
 
+  const currentCoordinates = () => {
+    if (!playerLocation?.coords) return null;
+    return {
+      latitude: playerLocation.coords.latitude,
+      longitude: playerLocation.coords.longitude,
+    };
+  };
+
+  const refreshInitiatives = async (playerId = player.id) => {
+    if (!playerId) return;
+    const next = await listInitiatives(playerId, currentCoordinates());
+    setInitiatives(next);
+    if (!selectedId && next[0]) setSelectedId(next[0].id);
+  };
+
+  const signIn = async (nickname: string) => {
+    try {
+      const session = await createSession(nickname);
+      setPlayer(session);
+      const [nextInitiatives, nextRewards] = await Promise.all([
+        listInitiatives(session.id, currentCoordinates()),
+        listRewards(),
+      ]);
+      setInitiatives(nextInitiatives);
+      setRewards(nextRewards);
+      if (nextInitiatives[0]) setSelectedId(nextInitiatives[0].id);
+      setScreen('map');
+    } catch (error) {
+      Alert.alert('Nie udało się połączyć z API', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+    }
+  };
+
   const navigateTo = (next: ScreenName) => {
     setScreen(next);
+    if (next === 'map' || next === 'initiatives') {
+      void refreshInitiatives();
+    }
+    if (next === 'rewards') {
+      void listRewards().then(setRewards).catch(() => {});
+    }
+    if (next === 'profile' && player.id) {
+      void getPlayer(player.id).then(setPlayer).catch(() => {});
+    }
   };
 
   const openInitiative = (initiative: Initiative) => {
@@ -134,44 +190,81 @@ export default function App() {
     setScreen('detail');
   };
 
-  const vote = (id: string) => {
-    const target = initiatives.find((item) => item.id === id);
-    const willPass = Boolean(target && target.status !== 'passed' && !target.hasVoted && target.votes + 1 >= target.threshold);
-    setInitiatives((current) => current.map((item) => {
-      if (item.id !== id || item.hasVoted || item.status === 'passed') return item;
-      const votes = Math.min(item.threshold, item.votes + 1);
-      return {
-        ...item,
-        votes,
-        marker: votes >= item.threshold ? '✓' : String(votes),
-        status: votes >= item.threshold ? 'passed' : 'collecting',
-        hasVoted: true,
-        color: votes >= item.threshold ? colors.resolved : item.color,
-      };
-    }));
-    setPlayer((current) => ({
-      ...current,
-      pointsBalance: current.pointsBalance + 10 + (willPass ? 50 : 0),
-      totalPointsEarned: current.totalPointsEarned + 10 + (willPass ? 50 : 0),
-    }));
+  const vote = async (id: string) => {
+    const coordinates = currentCoordinates();
+    if (!player.id || !coordinates) {
+      Alert.alert('Brak GPS', 'Nie można oddać Głosu bez aktualnej lokalizacji.');
+      return;
+    }
+
+    try {
+      const result = await voteInitiative(id, player.id, coordinates);
+      setInitiatives((current) => current.map((item) => item.id === id ? result.initiative : item));
+      setPlayer(result.player);
+    } catch (error) {
+      Alert.alert('Nie udało się oddać Głosu', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      void refreshInitiatives();
+    }
   };
 
-  const publishInitiative = (initiative: Initiative) => {
-    setInitiatives((current) => [initiative, ...current]);
-    setSelectedId(initiative.id);
-    setPlayer((current) => ({
-      ...current,
-      pointsBalance: current.pointsBalance + 100,
-      totalPointsEarned: current.totalPointsEarned + 100,
-    }));
+  const publishInitiative = async (initiative: Initiative) => {
+    if (!player.id) throw new Error('Brak sesji Gracza.');
+
+    const uploadedPhotoUri = initiative.brief.photoUri
+      ? await uploadInitiativePhoto(initiative.brief.photoUri)
+      : undefined;
+
+    const result = await createInitiative({
+      playerId: player.id,
+      latitude: initiative.latitude,
+      longitude: initiative.longitude,
+      title: initiative.brief.title,
+      shortTitle: initiative.shortTitle,
+      category: initiative.brief.category,
+      problem: initiative.brief.problem,
+      proposedAction: initiative.brief.proposedAction,
+      whyImportant: initiative.brief.whyImportant,
+      resources: initiative.brief.resources,
+      fixer: initiative.brief.fixer,
+      place: initiative.brief.place,
+      photoUri: uploadedPhotoUri,
+    });
+
+    setInitiatives((current) => [result.initiative, ...current.filter((item) => item.id !== result.initiative.id)]);
+    setSelectedId(result.initiative.id);
+    setPlayer(result.player);
     setPhotoUri(undefined);
     setScreen('detail');
+  };
+
+  const submitIncident = async (draft: KckIncidentDraft) => {
+    if (!player.id) throw new Error('Brak sesji Gracza.');
+
+    const prepared = await prepareKck(
+      draft.photoUri,
+      player.id,
+      { latitude: draft.latitude, longitude: draft.longitude },
+    );
+
+    if (prepared?.status === 'RETAKE') {
+      throw new Error(prepared.message || 'Zrób nowe zdjęcie usterki.');
+    }
+    if (!prepared?.draftId) {
+      throw new Error('Backend nie utworzył szkicu zgłoszenia.');
+    }
+
+    const result = await submitKck(prepared.draftId, draft);
+    if (result?.incidentId) {
+      const nextPlayer = await getPlayer(player.id);
+      setPlayer(nextPlayer);
+    }
+    return { incidentId: String(result?.incidentId || '') };
   };
 
   const renderScreen = () => {
     switch (screen) {
       case 'signin':
-        return <SignInScreen nickname={player.nickname} onContinue={(nickname) => { setPlayer((p) => ({ ...p, nickname })); navigateTo('map'); }} />;
+        return <SignInScreen nickname={player.nickname} onContinue={signIn} />;
       case 'map':
         return (
           <MapScreen
@@ -196,18 +289,28 @@ export default function App() {
           />
         );
       case 'rewards':
-        return <RewardsScreen onNavigate={navigateTo} player={player} onRedeem={(cost) => setPlayer((p) => ({ ...p, pointsBalance: Math.max(0, p.pointsBalance - cost) }))} />;
+        return (
+          <RewardsScreen
+            onNavigate={navigateTo}
+            player={player}
+            rewards={rewards}
+            onRedeem={async (rewardId: string) => {
+              const result = await redeemReward(rewardId, player.id);
+              setPlayer(result.player);
+            }}
+          />
+        );
       case 'profile':
         return <ProfileScreen onNavigate={navigateTo} player={player} />;
       case 'detail':
-        return (
+        return selected ? (
           <DetailScreen
             initiative={selected}
             onBack={() => navigateTo('map')}
-            onVote={() => vote(selected.id)}
+            onVote={() => void vote(selected.id)}
             playerLocation={playerLocation}
           />
-        );
+        ) : null;
       case 'creator':
         return (
           <CreatorScreen
@@ -224,6 +327,7 @@ export default function App() {
         return (
           <IncidentScreen
             photoUri={incidentPhotoUri}
+            onSubmit={submitIncident}
             onBack={() => {
               setIncidentPhotoUri(undefined);
               navigateTo('map');
