@@ -1,5 +1,6 @@
-import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import type { Coordinates, Initiative, KckCategory, KckIncidentDraft, PlayerState, Reward } from './types';
+import { appendImage as appendMultipartImage } from './multipart-upload';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -160,20 +161,6 @@ function json<T>(path: string, method: string, body: unknown): Promise<T> {
   });
 }
 
-async function appendImage(form: FormData, field: string, uri: string) {
-  if (Platform.OS === 'web') {
-    const blob = await (await fetch(uri)).blob();
-    form.append(field, blob, 'photo.jpg');
-    return;
-  }
-
-  form.append(field, {
-    uri,
-    name: 'photo.jpg',
-    type: 'image/jpeg',
-  } as any);
-}
-
 async function photoBase64(uri: string): Promise<string> {
   const blob = await (await fetch(uri)).blob();
   return new Promise((resolve, reject) => {
@@ -195,6 +182,10 @@ type ApiInitiative = Omit<Initiative, 'color' | 'distance'> & {
 interface InitiativeMutationResponse {
   initiative: ApiInitiative;
   player: PlayerState;
+}
+
+function appendImage(form: FormData, field: string, uri: string): void {
+  appendMultipartImage(form, field, new File(uri));
 }
 
 function normalizeInitiative(raw: ApiInitiative): Initiative {
