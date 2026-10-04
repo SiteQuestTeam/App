@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import { MapViewport } from '../components/MapViewport';
 import { BottomNav, StatusChip } from '../components';
 import { createMapHtml } from '../mapHtml';
 import { colors, fonts, shadow } from '../theme';
@@ -132,6 +132,7 @@ export function MapScreen({
       }
 
       if (message.type === 'anchor') setAnchored(Boolean(message.active));
+      if (message.type === 'map-error') setMapError(true);
     } catch {}
   };
 
@@ -144,11 +145,10 @@ export function MapScreen({
             <Text style={styles.fallbackTitle}>Mapa jest chwilowo niedostępna</Text>
           </View>
         ) : (
-          <WebView
+          <MapViewport
             ref={webView}
-            javaScriptEnabled
+            html={html}
             onError={() => setMapError(true)}
-            onHttpError={() => setMapError(true)}
             onMessage={handleMessage}
             onLoadEnd={() => {
               const loc = playerLocation?.coords;
@@ -161,8 +161,6 @@ export function MapScreen({
                 webView.current?.injectJavaScript('window.setPlayerVisible && window.setPlayerVisible(false);true;');
               }
             }}
-            originWhitelist={['*']}
-            source={{ html }}
             style={styles.map}
           />
         )}
