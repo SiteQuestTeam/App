@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useFonts as useInterFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -22,9 +22,6 @@ export default function App() {
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [incidentPhotoUri, setIncidentPhotoUri] = useState<string | undefined>();
   const [cameraTarget, setCameraTarget] = useState<'initiative' | 'incident'>('initiative');
-  const [gpsUnavailable, setGpsUnavailable] = useState(false);
-  const [gpsIssue, setGpsIssue] = useState<string | null>(null);
-  const [gpsRetryToken, setGpsRetryToken] = useState(0);
   const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
   const [player, setPlayer] = useState<PlayerState>({
     nickname: 'Gracz Demo',
@@ -99,14 +96,9 @@ export default function App() {
       case 'map':
         return (
           <MapScreen
-            gpsRetryToken={gpsRetryToken}
             initiatives={initiatives}
             onCreate={() => setScreen('creator')}
             onCreateIncident={() => setScreen('incident')}
-            onGpsStateChange={({ unavailable, issue }) => {
-              setGpsUnavailable(unavailable);
-              setGpsIssue(issue);
-            }}
             onNavigate={setScreen}
             onOpenInitiative={openInitiative}
             player={player}
@@ -166,60 +158,16 @@ export default function App() {
     }
   };
 
-  const gpsMessage = gpsIssue === 'Wyłączony GPS'
-    ? 'Włącz GPS w telefonie, a potem spróbuj ponownie. Lokalizacja jest potrzebna do mapy i działań na miejscu.'
-    : gpsIssue === 'Brak dostępu do GPS'
-      ? 'Zezwól SideQuest na dostęp do lokalizacji, aby korzystać z mapy i oddawać Głosy na miejscu.'
-      : 'Nie udało się ustalić Twojej pozycji. Sprawdź GPS i spróbuj ponownie.';
-
-  const showGpsFallback = screen === 'map' && gpsUnavailable;
-
   return (
     <SafeAreaProvider>
-      <View style={styles.appRoot}>
-        <StatusBar
-          backgroundColor={showGpsFallback ? colors.background : screen === 'camera' ? '#000' : colors.surface}
-          barStyle={screen === 'camera' && !showGpsFallback ? 'light-content' : 'dark-content'}
-          translucent={showGpsFallback}
-        />
-        <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
-          {renderScreen()}
-        </SafeAreaView>
-
-        <Modal
-          animationType="fade"
-          navigationBarTranslucent
-          onRequestClose={() => {}}
-          presentationStyle="fullScreen"
-          statusBarTranslucent
-          transparent={false}
-          visible={showGpsFallback}
-        >
-          <View style={styles.gpsFullscreen}>
-            <StartupStateScreen
-              mode="gps"
-              title="Brak sygnału GPS"
-              body={gpsMessage}
-              onRetry={() => {
-                setGpsUnavailable(false);
-                setGpsIssue(null);
-                setGpsRetryToken((token) => token + 1);
-              }}
-            />
-          </View>
-        </Modal>
-      </View>
+      <StatusBar backgroundColor={screen === 'camera' ? '#000' : colors.surface} barStyle={screen === 'camera' ? 'light-content' : 'dark-content'} />
+      <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
+        {renderScreen()}
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  appRoot: { backgroundColor: colors.background, flex: 1 },
   safeArea: { backgroundColor: colors.surface, flex: 1 },
-  gpsFullscreen: {
-    backgroundColor: colors.background,
-    flex: 1,
-    minHeight: '100%',
-    width: '100%',
-  },
 });
