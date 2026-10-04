@@ -1,0 +1,1 @@
+export const BACKGROUND_REFRESH_MS = 15_000;

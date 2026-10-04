@@ -12,6 +12,7 @@ import { IncidentScreen } from './src/screens/IncidentScreen';
 import { PermissionGateScreen } from './src/screens/PermissionGateScreen';
 import { InitiativesScreen, ProfileScreen, RewardsScreen, SignInScreen } from './src/screens/TabScreens';
 import { colors } from './src/theme';
+import { BACKGROUND_REFRESH_MS } from './src/background-refresh';
 import {
   createInitiative,
   createSession,
@@ -142,12 +143,45 @@ export default function App() {
   );
 
   const currentCoordinates = () => {
-    if (!playerLocation?.coords) return null;
+    const location = lastKnownLocationRef.current || playerLocation;
+    if (!location?.coords) return null;
     return {
-      latitude: playerLocation.coords.latitude,
-      longitude: playerLocation.coords.longitude,
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
     };
   };
+
+  useEffect(() => {
+    if (!player.id) return;
+
+    let active = true;
+    const refreshLiveData = async () => {
+      try {
+        const [nextInitiatives, nextRewards, nextPlayer] = await Promise.all([
+          listInitiatives(player.id, currentCoordinates()),
+          listRewards(),
+          getPlayer(player.id),
+        ]);
+        if (!active) return;
+        setInitiatives(nextInitiatives);
+        setRewards(nextRewards);
+        setPlayer(nextPlayer);
+        setSelectedId((current) =>
+          current && nextInitiatives.some((initiative) => initiative.id === current)
+            ? current
+            : nextInitiatives[0]?.id || '',
+        );
+      } catch {
+        // Keep the last verified state visible during a transient network error.
+      }
+    };
+
+    const interval = setInterval(() => void refreshLiveData(), BACKGROUND_REFRESH_MS);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [player.id]);
 
   const refreshInitiatives = async (playerId = player.id) => {
     if (!playerId) return;
