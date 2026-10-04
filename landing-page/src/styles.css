@@ -164,7 +164,7 @@ section[id] {
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-height: 44px;
   font-family: "Manrope Variable", sans-serif;
   font-size: 25px;
@@ -176,15 +176,10 @@ section[id] {
   color: var(--signal);
 }
 .brand-mark {
-  width: 44px;
-  height: 38px;
-  fill: var(--signal);
-}
-.brand-mark .accent {
-  fill: var(--violet);
-}
-.brand-mark .center {
-  fill: #fff;
+  width: 64px;
+  height: 58px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 .desktop-nav {
   display: flex;

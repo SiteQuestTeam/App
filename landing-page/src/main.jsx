@@ -29,21 +29,16 @@ import { initiatives as appInitiatives } from "../../src/data";
 import { APP_URL, APP_CTA, asset } from "./config";
 import "./styles.css";
 
-function Mark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 120 90" aria-hidden="true">
-      <circle cx="60" cy="18" r="12" />
-      <circle className="accent" cx="28" cy="34" r="10" />
-      <circle className="accent" cx="92" cy="34" r="10" />
-      <path d="M22 64c8-19 24-29 38-29s30 10 38 29c-12 9-25 13-38 13S34 73 22 64Z" />
-      <circle className="center" cx="60" cy="55" r="8" />
-    </svg>
-  );
-}
 function Logo() {
   return (
     <a className="logo" href="#top" aria-label="SiteQuest — początek strony">
-      <Mark />
+      <img
+        className="brand-mark"
+        src={asset("sitequest-logo.png")}
+        width="800"
+        height="730"
+        alt=""
+      />
       <span>
         SiteQuest<span className="logo-dot">.</span>
       </span>
@@ -63,8 +58,8 @@ function Mascot({ pose, className = "", ...props }) {
     />
   );
 }
-function Cta({ onDemo, secondary = false, children }) {
-  return APP_URL ? (
+function Cta({ secondary = false, children }) {
+  return (
     <a
       className={`button ${secondary ? "secondary" : "primary"}`}
       href={APP_URL}
@@ -72,14 +67,6 @@ function Cta({ onDemo, secondary = false, children }) {
       {children || APP_CTA}
       <ArrowUpRight size={20} />
     </a>
-  ) : (
-    <button
-      className={`button ${secondary ? "secondary" : "primary"}`}
-      onClick={onDemo}
-    >
-      {children || APP_CTA}
-      <ArrowUpRight size={20} />
-    </button>
   );
 }
 function MapDrawing({ className = "" }) {
