@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -10,13 +10,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton, ScreenHeader, StatusChip } from '../components';
 import { colors, fonts, shadow } from '../theme';
 
 const SWIPE_THRESHOLD = 92;
 const SCREEN_WIDTH = Dimensions.get('window').width;
+const MAX_VOTE_LOCATION_AGE_MS = 5000;
 
 function distanceMeters(a, b) {
   const R = 6371000;
@@ -29,10 +29,29 @@ function distanceMeters(a, b) {
   return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
-export function DetailScreen({ initiative, onBack, onVote }) {
+export function DetailScreen({ initiative, onBack, onVote, playerLocation }) {
   const [checking, setChecking] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const [locationError, setLocationError] = useState(false);
+
+  useEffect(() => {
+    if (!playerLocation?.coords) {
+      setDistance(null);
+      return;
+    }
+
+    setDistance(distanceMeters(
+      {
+        latitude: playerLocation.coords.latitude,
+        longitude: playerLocation.coords.longitude,
+      },
+      {
+        latitude: initiative.latitude,
+        longitude: initiative.longitude,
+      },
+    ));
+    setLocationError(false);
+  }, [initiative.latitude, initiative.longitude, playerLocation]);
 
   if (initiative.status === 'passed') {
     return <PassedInitiativeDetail initiative={initiative} onBack={onBack} />;
@@ -49,11 +68,16 @@ export function DetailScreen({ initiative, onBack, onVote }) {
         setChecking(true);
         setLocationError(false);
         try {
-          const permission = await Location.requestForegroundPermissionsAsync();
-          if (!permission.granted) throw new Error('permission');
-          const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          if (!playerLocation?.coords) throw new Error('missing-location');
+
+          const age = Date.now() - playerLocation.timestamp;
+          if (age > MAX_VOTE_LOCATION_AGE_MS) throw new Error('stale-location');
+
           const meters = distanceMeters(
-            { latitude: current.coords.latitude, longitude: current.coords.longitude },
+            {
+              latitude: playerLocation.coords.latitude,
+              longitude: playerLocation.coords.longitude,
+            },
             { latitude: initiative.latitude, longitude: initiative.longitude },
           );
           setDistance(meters);
