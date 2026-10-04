@@ -34,48 +34,50 @@ export function StartupStateScreen({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.artWrap}>
-        <Image resizeMode="contain" source={beaverGps} style={styles.art} />
-      </View>
+      <View style={styles.content}>
+        <View style={styles.artWrap}>
+          <Image resizeMode="contain" source={beaverGps} style={styles.art} />
+        </View>
 
-      <Text style={styles.title}>
-        {title || (isLoading ? 'Ładowanie mapy…' : 'Brak sygnału GPS')}
-      </Text>
+        <Text style={styles.title}>
+          {title || (isLoading ? 'Ładowanie mapy…' : 'Brak sygnału GPS')}
+        </Text>
 
-      <Text style={styles.body}>
-        {body || (
-          isLoading
-            ? 'Ustalamy Twoją lokalizację i przygotowujemy mapę.'
-            : 'Bóbr nie wie, gdzie jesteś. Włącz lokalizację, aby korzystać z mapy i działać na miejscu.'
+        <Text style={styles.body}>
+          {body || (
+            isLoading
+              ? 'Ustalamy Twoją lokalizację i przygotowujemy mapę.'
+              : 'Bóbr nie wie, gdzie jesteś. Włącz lokalizację, aby korzystać z mapy i działać na miejscu.'
+          )}
+        </Text>
+
+        {isLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={colors.signal} size="small" />
+            <Text style={styles.loadingText}>Chwila…</Text>
+          </View>
+        ) : (
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onRetry}
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.surface} name="refresh" size={19} />
+              <Text style={styles.primaryButtonText}>Spróbuj ponownie</Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={openSettings}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.signal} name="settings-outline" size={19} />
+              <Text style={styles.secondaryButtonText}>Otwórz ustawienia</Text>
+            </Pressable>
+          </View>
         )}
-      </Text>
-
-      {isLoading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color={colors.signal} size="small" />
-          <Text style={styles.loadingText}>Chwila…</Text>
-        </View>
-      ) : (
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onRetry}
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-          >
-            <Ionicons color={colors.surface} name="refresh" size={19} />
-            <Text style={styles.primaryButtonText}>Spróbuj ponownie</Text>
-          </Pressable>
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={openSettings}
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-          >
-            <Ionicons color={colors.signal} name="settings-outline" size={19} />
-            <Text style={styles.secondaryButtonText}>Otwórz ustawienia</Text>
-          </Pressable>
-        </View>
-      )}
+      </View>
     </View>
   );
 }
@@ -86,20 +88,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 24,
+    width: '100%',
+  },
+  content: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: 390,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    width: '100%',
   },
   artWrap: {
     alignItems: 'center',
+    aspectRatio: 0.75,
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: 32,
+    borderRadius: 28,
     borderWidth: 1,
-    height: 285,
     justifyContent: 'center',
+    maxWidth: 260,
     overflow: 'hidden',
-    width: '100%',
-    maxWidth: 360,
+    width: '72%',
     ...shadow,
   },
   art: {
@@ -107,20 +116,21 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   title: {
+    alignSelf: 'stretch',
     color: colors.ink,
     fontSize: 29,
     fontWeight: '800',
     lineHeight: 35,
-    marginTop: 24,
+    marginTop: 22,
     textAlign: 'center',
   },
   body: {
+    alignSelf: 'stretch',
     color: colors.muted,
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 21,
     marginTop: 9,
-    maxWidth: 340,
     textAlign: 'center',
   },
   loadingRow: {
@@ -135,10 +145,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   actions: {
+    alignSelf: 'stretch',
     gap: 10,
     marginTop: 25,
-    width: '100%',
-    maxWidth: 340,
   },
   primaryButton: {
     alignItems: 'center',
