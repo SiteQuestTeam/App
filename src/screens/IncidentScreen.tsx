@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -25,6 +25,13 @@ const CATEGORIES: Array<{ value: KckCategory; label: string; icon: string }> = [
   { value: 'OTHER', label: 'Pozostałe', icon: 'ellipsis-horizontal' },
 ];
 
+const STAGES = [
+  { id: 1, label: 'Zdjęcie' },
+  { id: 2, label: 'Opis' },
+  { id: 3, label: 'Lokalizacja' },
+  { id: 4, label: 'Sprawdź' },
+] as const;
+
 const normalizeZipCode = (value: string) => {
   const digits = value.replace(/\D/g, '').slice(0, 5);
   if (digits.length <= 2) return digits;
@@ -42,6 +49,8 @@ export function IncidentScreen({
   photoUri?: string;
   onSubmit?: (draft: KckIncidentDraft) => Promise<{ incidentId: string }>;
 }) {
+  const scrollRef = useRef<ScrollView>(null);
+  const [stage, setStage] = useState(photoUri ? 2 : 1);
   const [category, setCategory] = useState<KckCategory>('OTHER');
   const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
@@ -50,75 +59,121 @@ export function IncidentScreen({
   const [zipCode, setZipCode] = useState('');
   const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [addressHint, setAddressHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [incidentId, setIncidentId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const loadLocationAndAddress = async () => {
+    setLocationLoading(true);
+    setGeocodingLoading(false);
+    setLocationError(null);
+    setAddressHint(null);
 
-    const getLocation = async () => {
-      setLocationLoading(true);
-      setLocationError(null);
+    try {
+      const enabled = await Location.hasServicesEnabledAsync();
+      if (!enabled) {
+        setLocationError('Włącz GPS, aby automatycznie ustalić adres.');
+        return;
+      }
+
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (!permission.granted) {
+        setLocationError('SideQuest potrzebuje dostępu do GPS dla zgłoszenia KCK.');
+        return;
+      }
+
+      const result = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const nextCoordinates = {
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+      };
+      setCoordinates(nextCoordinates);
+      setLocationLoading(false);
+      setGeocodingLoading(true);
 
       try {
-        const enabled = await Location.hasServicesEnabledAsync();
-        if (!enabled) {
-          if (active) setLocationError('Włącz GPS, aby przygotować zgłoszenie.');
+        const places = await Location.reverseGeocodeAsync(nextCoordinates);
+        const address = places[0];
+
+        if (!address) {
+          setAddressHint('Nie znaleziono jednoznacznego adresu. Uzupełnij go ręcznie.');
           return;
         }
 
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) {
-          if (active) setLocationError('SideQuest potrzebuje dostępu do GPS dla zgłoszenia KCK.');
-          return;
+        const detectedStreet = address.street || address.name || '';
+        const detectedNumber = address.streetNumber || '';
+        const detectedZip = address.postalCode ? normalizeZipCode(address.postalCode) : '';
+
+        if (detectedStreet) setStreetName(detectedStreet);
+        if (detectedNumber) setBuildingNumber(detectedNumber);
+        if (detectedZip) setZipCode(detectedZip);
+
+        const autoFilled = [detectedStreet, detectedNumber, detectedZip].filter(Boolean).length;
+        if (autoFilled === 3) {
+          setAddressHint('Adres uzupełniony automatycznie na podstawie GPS.');
+        } else {
+          setAddressHint('Adres rozpoznany częściowo. Sprawdź brakujące pola.');
         }
-
-        const result = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-
-        if (!active) return;
-        setCoordinates({
-          latitude: result.coords.latitude,
-          longitude: result.coords.longitude,
-        });
       } catch {
-        if (active) setLocationError('Nie udało się pobrać pozycji GPS.');
+        setAddressHint('GPS działa, ale nie udało się rozpoznać adresu. Uzupełnij go ręcznie.');
       } finally {
-        if (active) setLocationLoading(false);
+        setGeocodingLoading(false);
       }
-    };
+    } catch {
+      setLocationError('Nie udało się pobrać bieżącej pozycji GPS.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
-    getLocation();
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    loadLocationAndAddress();
   }, []);
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [stage]);
+
   const isZipValid = /^\d{2}-\d{3}$/.test(zipCode);
-  const isValid = Boolean(
-    photoUri
-      && coordinates
-      && summary.trim()
-      && description.trim()
+  const descriptionStageValid = Boolean(summary.trim() && description.trim());
+  const locationStageValid = Boolean(
+    coordinates
       && streetName.trim()
       && buildingNumber.trim()
       && isZipValid,
   );
+  const isValid = Boolean(photoUri && descriptionStageValid && locationStageValid);
 
   const missingFields = useMemo(() => {
     const items: string[] = [];
     if (!photoUri) items.push('Zdjęcie na żywo');
-    if (!coordinates) items.push('GPS');
     if (!summary.trim()) items.push('tytuł');
     if (!description.trim()) items.push('opis');
+    if (!coordinates) items.push('GPS');
     if (!streetName.trim()) items.push('ulica');
     if (!buildingNumber.trim()) items.push('numer');
     if (!isZipValid) items.push('kod pocztowy');
     return items;
   }, [photoUri, coordinates, summary, description, streetName, buildingNumber, isZipValid]);
+
+  const goToStage = (nextStage: number) => {
+    if (nextStage < stage) {
+      setStage(nextStage);
+      return;
+    }
+
+    if (stage === 1 && !photoUri) return;
+    if (stage === 2 && !descriptionStageValid) return;
+    if (stage === 3 && !locationStageValid) return;
+
+    setStage(nextStage);
+  };
 
   const submit = async () => {
     if (!isValid || !photoUri || !coordinates || submitting) return;
@@ -178,161 +233,227 @@ export function IncidentScreen({
     );
   }
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.screen}
-    >
-      <ScreenHeader kicker="KCK" title="Zgłoś usterkę" onBack={onBack} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.infoCard}>
-          <View style={styles.infoIcon}>
-            <Ionicons color={colors.signal} name="shield-checkmark-outline" size={22} />
-          </View>
-          <View style={styles.infoCopy}>
-            <Text style={styles.infoTitle}>Zgłoszenie anonimowe</Text>
-            <Text style={styles.infoText}>
-              Nie zbieramy imienia, nazwiska, e-maila ani telefonu. Ostateczne wysłanie nastąpi dopiero po Twoim potwierdzeniu.
-            </Text>
-          </View>
-        </View>
+  const renderStage = () => {
+    if (stage === 1) {
+      return (
+        <>
+          <Text style={styles.stageTitle}>Pokaż usterkę</Text>
+          <Text style={styles.stageDescription}>
+            Zrób jedno Zdjęcie na żywo. Równolegle pobieramy GPS, żeby później automatycznie uzupełnić adres.
+          </Text>
 
-        <Text style={styles.sectionKicker}>1 · Dowód i lokalizacja</Text>
-        <View style={styles.photoCard}>
-          {photoUri ? (
-            <>
-              <Image source={{ uri: photoUri }} style={styles.photo} />
-              <View style={styles.photoOverlay}>
-                <View style={styles.liveBadge}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.liveText}>ZDJĘCIE NA ŻYWO</Text>
+          <View style={styles.photoCard}>
+            {photoUri ? (
+              <>
+                <Image source={{ uri: photoUri }} style={styles.photo} />
+                <View style={styles.photoOverlay}>
+                  <View style={styles.liveBadge}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveText}>ZDJĘCIE NA ŻYWO</Text>
+                  </View>
                 </View>
-              </View>
-              <Pressable onPress={onCamera} style={styles.retakeButton}>
-                <Ionicons color={colors.ink} name="camera-outline" size={18} />
-                <Text style={styles.retakeText}>Zrób ponownie</Text>
-              </Pressable>
-            </>
-          ) : (
-            <View style={styles.photoEmpty}>
-              <View style={styles.photoEmptyIcon}>
-                <Ionicons color={colors.signal} name="camera-outline" size={30} />
-              </View>
-              <Text style={styles.photoEmptyTitle}>Zrób zdjęcie usterki</Text>
-              <Text style={styles.photoEmptyBody}>Tylko aparat w aplikacji — bez wyboru z galerii.</Text>
-              <PrimaryButton icon="camera" onPress={onCamera} style={styles.photoButton}>
-                Zrób zdjęcie
-              </PrimaryButton>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.gpsCard}>
-          <View style={[styles.statusIcon, coordinates && styles.statusIconReady]}>
-            {locationLoading
-              ? <ActivityIndicator color={colors.signal} size="small" />
-              : <Ionicons color={coordinates ? colors.resolved : colors.warning} name={coordinates ? 'location' : 'warning-outline'} size={20} />}
-          </View>
-          <View style={styles.statusCopy}>
-            <Text style={styles.statusTitle}>Lokalizacja GPS</Text>
-            {locationLoading ? (
-              <Text style={styles.statusText}>Pobieranie bieżącej pozycji…</Text>
-            ) : coordinates ? (
-              <Text style={styles.statusText}>
-                {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
-              </Text>
+                <Pressable onPress={onCamera} style={styles.retakeButton}>
+                  <Ionicons color={colors.ink} name="camera-outline" size={18} />
+                  <Text style={styles.retakeText}>Zrób ponownie</Text>
+                </Pressable>
+              </>
             ) : (
-              <Text style={[styles.statusText, styles.statusError]}>{locationError}</Text>
+              <View style={styles.photoEmpty}>
+                <View style={styles.photoEmptyIcon}>
+                  <Ionicons color={colors.signal} name="camera-outline" size={30} />
+                </View>
+                <Text style={styles.photoEmptyTitle}>Zrób zdjęcie usterki</Text>
+                <Text style={styles.photoEmptyBody}>Tylko aparat w aplikacji — bez wyboru z galerii.</Text>
+                <PrimaryButton icon="camera" onPress={onCamera} style={styles.photoButton}>
+                  Otwórz aparat
+                </PrimaryButton>
+              </View>
             )}
           </View>
-        </View>
 
-        <View style={styles.aiHint}>
-          <Ionicons color={colors.violet} name="sparkles-outline" size={18} />
-          <Text style={styles.aiHintText}>
-            AI i AddressService mogą wstępnie uzupełnić pola poniżej. Zawsze możesz je poprawić przed wysłaniem.
+          <LocationStatus
+            coordinates={coordinates}
+            geocodingLoading={geocodingLoading}
+            locationError={locationError}
+            locationLoading={locationLoading}
+          />
+
+          <PrimaryButton
+            disabled={!photoUri}
+            icon="arrow-forward"
+            onPress={() => goToStage(2)}
+            style={styles.nextButton}
+          >
+            Dalej
+          </PrimaryButton>
+        </>
+      );
+    }
+
+    if (stage === 2) {
+      return (
+        <>
+          <Text style={styles.stageTitle}>Co się stało?</Text>
+          <Text style={styles.stageDescription}>
+            Wybierz kategorię i sprawdź opis. Docelowo AI może uzupełnić te pola ze zdjęcia, ale zawsze pozostają edytowalne.
           </Text>
-        </View>
 
-        <Text style={styles.sectionKicker}>2 · Dane zgłoszenia</Text>
-        <Text style={styles.fieldLabel}>Kategoria KCK</Text>
-        <View style={styles.categories}>
-          {CATEGORIES.map((item) => {
-            const selected = category === item.value;
-            return (
-              <Pressable
-                key={item.value}
-                onPress={() => setCategory(item.value)}
-                style={[styles.categoryPill, selected && styles.categoryPillActive]}
-              >
-                <Ionicons color={selected ? colors.surface : colors.signal} name={item.icon as any} size={16} />
-                <Text style={[styles.categoryText, selected && styles.categoryTextActive]}>{item.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <Text style={styles.fieldLabel}>Kategoria KCK</Text>
+          <View style={styles.categories}>
+            {CATEGORIES.map((item) => {
+              const selected = category === item.value;
+              return (
+                <Pressable
+                  key={item.value}
+                  onPress={() => setCategory(item.value)}
+                  style={[styles.categoryPill, selected && styles.categoryPillActive]}
+                >
+                  <Ionicons color={selected ? colors.surface : colors.signal} name={item.icon as any} size={16} />
+                  <Text style={[styles.categoryText, selected && styles.categoryTextActive]}>{item.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <Field
-          label="Tytuł"
-          value={summary}
-          onChangeText={(value) => setSummary(value.slice(0, 60))}
-          placeholder="Krótko: co jest uszkodzone?"
-          counter={`${summary.length}/60`}
-        />
+          <Field
+            label="Tytuł"
+            value={summary}
+            onChangeText={(value) => setSummary(value.slice(0, 60))}
+            placeholder="Krótko: co jest uszkodzone?"
+            counter={`${summary.length}/60`}
+          />
 
-        <Field
-          label="Opis"
-          value={description}
-          onChangeText={(value) => setDescription(value.slice(0, 500))}
-          placeholder="Opisz tylko to, co rzeczywiście widać."
-          counter={`${description.length}/500`}
-          multiline
-        />
+          <Field
+            label="Opis"
+            value={description}
+            onChangeText={(value) => setDescription(value.slice(0, 500))}
+            placeholder="Opisz tylko to, co rzeczywiście widać."
+            counter={`${description.length}/500`}
+            multiline
+          />
 
-        <Text style={styles.sectionKicker}>3 · Adres</Text>
-        <Text style={styles.helperText}>
-          Adres powinien zostać wyznaczony z GPS. Jeśli nie jest jednoznaczny, popraw go tutaj.
+          <StageActions
+            backLabel="Wstecz"
+            nextDisabled={!descriptionStageValid}
+            onBack={() => goToStage(1)}
+            onNext={() => goToStage(3)}
+          />
+        </>
+      );
+    }
+
+    if (stage === 3) {
+      return (
+        <>
+          <Text style={styles.stageTitle}>Lokalizacja</Text>
+          <Text style={styles.stageDescription}>
+            GPS i reverse geocoding próbują uzupełnić adres automatycznie. Sprawdź go tylko wtedy, gdy coś się nie zgadza.
+          </Text>
+
+          <LocationStatus
+            coordinates={coordinates}
+            geocodingLoading={geocodingLoading}
+            locationError={locationError}
+            locationLoading={locationLoading}
+          />
+
+          {addressHint && (
+            <View style={[styles.addressStatus, locationStageValid && styles.addressStatusReady]}>
+              <Ionicons
+                color={locationStageValid ? colors.resolved : colors.warning}
+                name={locationStageValid ? 'checkmark-circle-outline' : 'information-circle-outline'}
+                size={19}
+              />
+              <Text style={styles.addressStatusText}>{addressHint}</Text>
+            </View>
+          )}
+
+          <Pressable
+            disabled={locationLoading || geocodingLoading}
+            onPress={loadLocationAndAddress}
+            style={({ pressed }) => [styles.refreshLocation, pressed && styles.pressed]}
+          >
+            <Ionicons color={colors.signal} name="locate-outline" size={18} />
+            <Text style={styles.refreshLocationText}>
+              {locationLoading || geocodingLoading ? 'Ustalanie lokalizacji…' : 'Ustal ponownie'}
+            </Text>
+          </Pressable>
+
+          <Field
+            label="Ulica"
+            value={streetName}
+            onChangeText={setStreetName}
+            placeholder="np. Stanisława Lema"
+          />
+
+          <View style={styles.addressRow}>
+            <View style={styles.addressNumber}>
+              <Field
+                label="Numer"
+                value={buildingNumber}
+                onChangeText={setBuildingNumber}
+                placeholder="np. 7"
+              />
+            </View>
+            <View style={styles.addressZip}>
+              <Field
+                label="Kod pocztowy"
+                value={zipCode}
+                onChangeText={(value) => setZipCode(normalizeZipCode(value))}
+                placeholder="31-571"
+                keyboardType="number-pad"
+                error={zipCode.length > 0 && !isZipValid ? 'Format: 00-000' : undefined}
+              />
+            </View>
+          </View>
+
+          <StageActions
+            backLabel="Wstecz"
+            nextDisabled={!locationStageValid}
+            onBack={() => goToStage(2)}
+            onNext={() => goToStage(4)}
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Text style={styles.stageTitle}>Sprawdź i wyślij</Text>
+        <Text style={styles.stageDescription}>
+          To ostatni krok. Nic nie trafi do KCK, dopóki nie naciśniesz „Wyślij do KCK”.
         </Text>
 
-        <Field
-          label="Ulica"
-          value={streetName}
-          onChangeText={setStreetName}
-          placeholder="np. Stanisława Lema"
-        />
-
-        <View style={styles.addressRow}>
-          <View style={styles.addressNumber}>
-            <Field
-              label="Numer"
-              value={buildingNumber}
-              onChangeText={setBuildingNumber}
-              placeholder="np. 7"
-            />
-          </View>
-          <View style={styles.addressZip}>
-            <Field
-              label="Kod pocztowy"
-              value={zipCode}
-              onChangeText={(value) => setZipCode(normalizeZipCode(value))}
-              placeholder="31-571"
-              keyboardType="number-pad"
-              error={zipCode.length > 0 && !isZipValid ? 'Format: 00-000' : undefined}
-            />
+        <View style={styles.reviewPhotoCard}>
+          {photoUri ? <Image source={{ uri: photoUri }} style={styles.reviewPhoto} /> : null}
+          <View style={styles.reviewPhotoCopy}>
+            <Text style={styles.reviewLabel}>Kategoria</Text>
+            <Text style={styles.reviewStrong}>
+              {CATEGORIES.find((item) => item.value === category)?.label}
+            </Text>
+            <Text numberOfLines={2} style={styles.reviewSummary}>{summary}</Text>
           </View>
         </View>
 
-        <View style={styles.reviewCard}>
-          <View style={styles.reviewHeader}>
-            <Ionicons color={colors.signal} name="eye-outline" size={20} />
-            <Text style={styles.reviewTitle}>Przed wysłaniem</Text>
-          </View>
-          <Text style={styles.reviewText}>
-            Sprawdź zdjęcie, kategorię, tytuł, opis i adres. SideQuest nie wybiera wydziału ani urzędu.
+        <ReviewRow icon="document-text-outline" label="Opis" value={description} onEdit={() => goToStage(2)} />
+        <ReviewRow
+          icon="location-outline"
+          label="Adres"
+          value={`${streetName} ${buildingNumber}, ${zipCode}`}
+          onEdit={() => goToStage(3)}
+        />
+        {coordinates && (
+          <ReviewRow
+            icon="navigate-outline"
+            label="GPS"
+            value={`${coordinates.latitude.toFixed(5)}, ${coordinates.longitude.toFixed(5)}`}
+          />
+        )}
+
+        <View style={styles.privacyCard}>
+          <Ionicons color={colors.signal} name="shield-checkmark-outline" size={20} />
+          <Text style={styles.privacyText}>
+            Zgłoszenie jest anonimowe. Nie wysyłamy imienia, nazwiska, e-maila ani telefonu.
           </Text>
         </View>
 
@@ -349,6 +470,13 @@ export function IncidentScreen({
           </View>
         )}
 
+        <StageActions
+          backLabel="Wstecz"
+          hideNext
+          onBack={() => goToStage(3)}
+          onNext={() => {}}
+        />
+
         <PrimaryButton
           disabled={!isValid || submitting}
           icon="send-outline"
@@ -361,8 +489,162 @@ export function IncidentScreen({
         <Text style={styles.footerNote}>
           Punkty są przyznawane dopiero po otrzymaniu prawidłowego numeru incidentId z KCK.
         </Text>
+      </>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.screen}
+    >
+      <ScreenHeader kicker="KCK" title="Zgłoś usterkę" onBack={onBack} />
+      <StageProgress stage={stage} onSelect={goToStage} />
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {renderStage()}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function StageProgress({ stage, onSelect }: { stage: number; onSelect: (stage: number) => void }) {
+  return (
+    <View style={styles.progressWrap}>
+      {STAGES.map((item, index) => {
+        const active = stage === item.id;
+        const done = stage > item.id;
+        return (
+          <View key={item.id} style={styles.progressItem}>
+            <Pressable
+              disabled={!done}
+              onPress={() => onSelect(item.id)}
+              style={[styles.progressCircle, (active || done) && styles.progressCircleActive]}
+            >
+              {done ? (
+                <Ionicons color={colors.surface} name="checkmark" size={14} />
+              ) : (
+                <Text style={[styles.progressNumber, active && styles.progressNumberActive]}>{item.id}</Text>
+              )}
+            </Pressable>
+            <Text numberOfLines={1} style={[styles.progressLabel, active && styles.progressLabelActive]}>
+              {item.label}
+            </Text>
+            {index < STAGES.length - 1 && (
+              <View style={[styles.progressLine, done && styles.progressLineActive]} />
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function LocationStatus({
+  coordinates,
+  locationLoading,
+  geocodingLoading,
+  locationError,
+}: {
+  coordinates: { latitude: number; longitude: number } | null;
+  locationLoading: boolean;
+  geocodingLoading: boolean;
+  locationError: string | null;
+}) {
+  const busy = locationLoading || geocodingLoading;
+  return (
+    <View style={styles.gpsCard}>
+      <View style={[styles.statusIcon, coordinates && styles.statusIconReady]}>
+        {busy
+          ? <ActivityIndicator color={colors.signal} size="small" />
+          : <Ionicons color={coordinates ? colors.resolved : colors.warning} name={coordinates ? 'location' : 'warning-outline'} size={20} />}
+      </View>
+      <View style={styles.statusCopy}>
+        <Text style={styles.statusTitle}>
+          {geocodingLoading ? 'Rozpoznawanie adresu…' : 'Lokalizacja GPS'}
+        </Text>
+        {locationLoading ? (
+          <Text style={styles.statusText}>Pobieranie bieżącej pozycji…</Text>
+        ) : coordinates ? (
+          <Text style={styles.statusText}>
+            {coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}
+          </Text>
+        ) : (
+          <Text style={[styles.statusText, styles.statusError]}>{locationError}</Text>
+        )}
+      </View>
+      {coordinates && !busy ? <Ionicons color={colors.resolved} name="checkmark-circle" size={20} /> : null}
+    </View>
+  );
+}
+
+function StageActions({
+  onBack,
+  onNext,
+  nextDisabled = false,
+  backLabel,
+  hideNext = false,
+}: {
+  onBack: () => void;
+  onNext: () => void;
+  nextDisabled?: boolean;
+  backLabel: string;
+  hideNext?: boolean;
+}) {
+  return (
+    <View style={styles.stageActions}>
+      <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Ionicons color={colors.ink} name="arrow-back" size={18} />
+        <Text style={styles.backButtonText}>{backLabel}</Text>
+      </Pressable>
+      {!hideNext && (
+        <Pressable
+          disabled={nextDisabled}
+          onPress={onNext}
+          style={({ pressed }) => [
+            styles.nextStageButton,
+            nextDisabled && styles.nextStageButtonDisabled,
+            pressed && !nextDisabled && styles.pressed,
+          ]}
+        >
+          <Text style={styles.nextStageButtonText}>Dalej</Text>
+          <Ionicons color={colors.surface} name="arrow-forward" size={18} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function ReviewRow({
+  icon,
+  label,
+  value,
+  onEdit,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  onEdit?: () => void;
+}) {
+  return (
+    <View style={styles.reviewRow}>
+      <View style={styles.reviewRowIcon}>
+        <Ionicons color={colors.signal} name={icon as any} size={19} />
+      </View>
+      <View style={styles.reviewRowCopy}>
+        <Text style={styles.reviewLabel}>{label}</Text>
+        <Text style={styles.reviewValue}>{value}</Text>
+      </View>
+      {onEdit ? (
+        <Pressable onPress={onEdit} style={styles.editButton}>
+          <Text style={styles.editButtonText}>Edytuj</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -408,39 +690,44 @@ function Field({
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  content: { padding: 16, paddingBottom: 36 },
+  content: { padding: 16, paddingBottom: 38 },
 
-  infoCard: {
+  progressWrap: {
     alignItems: 'flex-start',
-    backgroundColor: colors.blueSoft,
-    borderColor: '#D9E3FF',
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-    padding: 14,
-  },
-  infoIcon: {
-    alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 19,
-    height: 38,
+    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  progressItem: { alignItems: 'center', flex: 1, position: 'relative' },
+  progressCircle: {
+    alignItems: 'center',
+    backgroundColor: colors.greySoft,
+    borderRadius: 15,
+    height: 30,
     justifyContent: 'center',
-    width: 38,
+    width: 30,
+    zIndex: 2,
   },
-  infoCopy: { flex: 1 },
-  infoTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 14 },
-  infoText: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  progressCircleActive: { backgroundColor: colors.signal },
+  progressNumber: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 11 },
+  progressNumberActive: { color: colors.surface },
+  progressLabel: { color: colors.muted, fontFamily: fonts.bodyMedium, fontSize: 9, marginTop: 5 },
+  progressLabelActive: { color: colors.signal, fontFamily: fonts.bodyBold },
+  progressLine: {
+    backgroundColor: colors.border,
+    height: 2,
+    left: '66%',
+    position: 'absolute',
+    top: 14,
+    width: '68%',
+  },
+  progressLineActive: { backgroundColor: colors.signal },
 
-  sectionKicker: {
-    color: colors.signal,
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1,
-    marginBottom: 10,
-    marginTop: 22,
-    textTransform: 'uppercase',
-  },
+  stageTitle: { color: colors.ink, fontFamily: fonts.headingExtra, fontSize: 24 },
+  stageDescription: { color: colors.muted, fontFamily: fonts.body, fontSize: 13, lineHeight: 20, marginBottom: 18, marginTop: 6 },
 
   photoCard: {
     backgroundColor: colors.surface,
@@ -466,7 +753,6 @@ const styles = StyleSheet.create({
   liveText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7 },
   retakeButton: {
     alignItems: 'center',
-    alignSelf: 'flex-end',
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 999,
@@ -501,7 +787,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 11,
-    marginTop: 12,
+    marginTop: 14,
     padding: 13,
   },
   statusIcon: {
@@ -518,18 +804,7 @@ const styles = StyleSheet.create({
   statusText: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginTop: 2 },
   statusError: { color: colors.warning },
 
-  aiHint: {
-    alignItems: 'flex-start',
-    backgroundColor: colors.violetSoft,
-    borderRadius: 16,
-    flexDirection: 'row',
-    gap: 9,
-    marginTop: 12,
-    padding: 12,
-  },
-  aiHintText: { color: colors.muted, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
-
-  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   categoryPill: {
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -565,22 +840,115 @@ const styles = StyleSheet.create({
   inputError: { borderColor: colors.error },
   inputErrorText: { color: colors.error, fontFamily: fonts.bodyMedium, fontSize: 10, marginTop: 5 },
 
-  helperText: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginBottom: 1 },
+  addressStatus: {
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF5DF',
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+  },
+  addressStatusReady: { backgroundColor: colors.mintSoft },
+  addressStatusText: { color: colors.muted, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
+  refreshLocation: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 12,
+    paddingVertical: 6,
+  },
+  refreshLocationText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
   addressRow: { flexDirection: 'row', gap: 10 },
   addressNumber: { flex: 0.75 },
   addressZip: { flex: 1.25 },
 
-  reviewCard: {
+  stageActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  backButton: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 7,
+    minHeight: 50,
+    paddingHorizontal: 16,
+  },
+  backButtonText: { color: colors.ink, fontFamily: fonts.bodyBold, fontSize: 13 },
+  nextStageButton: {
+    alignItems: 'center',
+    backgroundColor: colors.signal,
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    minHeight: 50,
+    minWidth: 126,
+    paddingHorizontal: 18,
+  },
+  nextStageButtonDisabled: { backgroundColor: '#CBD2DC' },
+  nextStageButtonText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 13 },
+  nextButton: { marginTop: 20 },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.99 }] },
+
+  reviewPhotoCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    overflow: 'hidden',
+    paddingRight: 14,
+    ...shadow,
+  },
+  reviewPhoto: { height: 96, width: 96 },
+  reviewPhotoCopy: { flex: 1, paddingVertical: 10 },
+  reviewLabel: { color: colors.muted, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7, textTransform: 'uppercase' },
+  reviewStrong: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11, marginTop: 3 },
+  reviewSummary: { color: colors.ink, fontFamily: fonts.heading, fontSize: 14, lineHeight: 18, marginTop: 5 },
+  reviewRow: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
-    marginTop: 22,
-    padding: 14,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    padding: 13,
   },
-  reviewHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  reviewTitle: { color: colors.ink, fontFamily: fonts.heading, fontSize: 14 },
-  reviewText: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, lineHeight: 17, marginTop: 7 },
+  reviewRowIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.blueSoft,
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  reviewRowCopy: { flex: 1 },
+  reviewValue: { color: colors.ink, fontFamily: fonts.bodyMedium, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  editButton: { paddingHorizontal: 5, paddingVertical: 6 },
+  editButtonText: { color: colors.signal, fontFamily: fonts.bodyBold, fontSize: 11 },
+
+  privacyCard: {
+    alignItems: 'flex-start',
+    backgroundColor: colors.blueSoft,
+    borderRadius: 16,
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: 14,
+    padding: 12,
+  },
+  privacyText: { color: colors.muted, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
 
   missingText: { color: colors.warning, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16, marginTop: 12 },
   errorCard: {
@@ -594,7 +962,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: colors.error, flex: 1, fontFamily: fonts.bodyMedium, fontSize: 11, lineHeight: 16 },
 
-  submitButton: { marginTop: 18 },
+  submitButton: { marginTop: 12 },
   footerNote: { color: colors.muted, fontFamily: fonts.body, fontSize: 10, lineHeight: 15, marginTop: 10, textAlign: 'center' },
 
   successContent: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 28 },
