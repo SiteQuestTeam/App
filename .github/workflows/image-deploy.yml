@@ -1,0 +1,121 @@
+name: Android and Web Docker image
+
+on:
+  push:
+    branches:
+      - image-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-deploy
+  cancel-in-progress: true
+
+env:
+  WEB_IMAGE: ghcr.io/sitequestteam/sitequest-web
+
+jobs:
+  android:
+    name: Build Android APK and AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve build version
+        shell: bash
+        run: |
+          BASE_VERSION="$(node -p "require('./package.json').version")"
+          VERSION_NAME="${BASE_VERSION}-image.${GITHUB_RUN_NUMBER}"
+
+          echo "CI_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "${GITHUB_ENV}"
+          echo "CI_VERSION_NAME=${VERSION_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Build release APK and AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease :app:bundleRelease \
+            -PappVersionCode="${CI_VERSION_CODE}" \
+            -PappVersionName="${CI_VERSION_NAME}" \
+            --no-daemon
+
+      - name: Prepare Android artifacts
+        shell: bash
+        run: |
+          mkdir -p dist/android
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/android/SiteQuest-${CI_VERSION_NAME}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "dist/android/SiteQuest-${CI_VERSION_NAME}.aab"
+          cd dist/android
+          sha256sum *.apk *.aab > SHA256SUMS.txt
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: "SiteQuest-Android-${{ env.CI_VERSION_NAME }}"
+          path: dist/android/
+          if-no-files-found: error
+          retention-days: 14
+
+  web-image:
+    name: Build and push Web Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.WEB_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=image-deploy
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.web
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
