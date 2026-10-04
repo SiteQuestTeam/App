@@ -1,4 +1,4 @@
-export type ScreenName = 'signin' | 'map' | 'initiatives' | 'rewards' | 'profile' | 'detail' | 'creator' | 'camera';
+export type ScreenName = 'signin' | 'map' | 'initiatives' | 'rewards' | 'profile' | 'detail' | 'creator' | 'incident' | 'camera';
 
 export type InitiativeStatus = 'collecting' | 'passed';
 export type Fixer = 'Miasto' | 'Gildia' | 'Gracze';
