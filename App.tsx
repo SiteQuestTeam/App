@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StatusBar, StyleSheet } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts as useManropeFonts, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 import { useFonts as useInterFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -22,6 +22,7 @@ export default function App() {
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [incidentPhotoUri, setIncidentPhotoUri] = useState<string | undefined>();
   const [cameraTarget, setCameraTarget] = useState<'initiative' | 'incident'>('initiative');
+  const [mapLoading, setMapLoading] = useState(true);
   const [initiatives, setInitiatives] = useState<Initiative[]>(initialInitiatives);
   const [player, setPlayer] = useState<PlayerState>({
     nickname: 'Gracz Demo',
@@ -48,6 +49,11 @@ export default function App() {
       </SafeAreaProvider>
     );
   }
+
+  const navigateTo = (next: ScreenName) => {
+    if (next === 'map') setMapLoading(true);
+    setScreen(next);
+  };
 
   const openInitiative = (initiative: Initiative) => {
     setSelectedId(initiative.id);
@@ -91,26 +97,27 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'signin':
-        return <SignInScreen nickname={player.nickname} onContinue={(nickname) => { setPlayer((p) => ({ ...p, nickname })); setScreen('map'); }} />;
+        return <SignInScreen nickname={player.nickname} onContinue={(nickname) => { setPlayer((p) => ({ ...p, nickname })); navigateTo('map'); }} />;
       case 'map':
         return (
           <MapScreen
             initiatives={initiatives}
             onCreate={() => setScreen('creator')}
             onCreateIncident={() => setScreen('incident')}
-            onNavigate={setScreen}
+            onLoadingChange={setMapLoading}
+            onNavigate={navigateTo}
             onOpenInitiative={openInitiative}
             player={player}
           />
         );
       case 'initiatives':
-        return <InitiativesScreen initiatives={initiatives} onNavigate={setScreen} onOpenInitiative={openInitiative} />;
+        return <InitiativesScreen initiatives={initiatives} onNavigate={navigateTo} onOpenInitiative={openInitiative} />;
       case 'rewards':
-        return <RewardsScreen onNavigate={setScreen} player={player} onRedeem={(cost) => setPlayer((p) => ({ ...p, pointsBalance: Math.max(0, p.pointsBalance - cost) }))} />;
+        return <RewardsScreen onNavigate={navigateTo} player={player} onRedeem={(cost) => setPlayer((p) => ({ ...p, pointsBalance: Math.max(0, p.pointsBalance - cost) }))} />;
       case 'profile':
-        return <ProfileScreen onNavigate={setScreen} player={player} />;
+        return <ProfileScreen onNavigate={navigateTo} player={player} />;
       case 'detail':
-        return <DetailScreen initiative={selected} onBack={() => setScreen('map')} onVote={() => vote(selected.id)} />;
+        return <DetailScreen initiative={selected} onBack={() => navigateTo('map')} onVote={() => vote(selected.id)} />;
       case 'creator':
         return (
           <CreatorScreen
@@ -119,7 +126,7 @@ export default function App() {
               setCameraTarget('initiative');
               setScreen('camera');
             }}
-            onClose={() => setScreen('map')}
+            onClose={() => navigateTo('map')}
             onPublish={publishInitiative}
           />
         );
@@ -129,7 +136,7 @@ export default function App() {
             photoUri={incidentPhotoUri}
             onBack={() => {
               setIncidentPhotoUri(undefined);
-              setScreen('map');
+              navigateTo('map');
             }}
             onCamera={() => {
               setCameraTarget('incident');
@@ -157,16 +164,49 @@ export default function App() {
     }
   };
 
+  const showMapLoading = screen === 'map' && mapLoading;
+
   return (
     <SafeAreaProvider>
-      <StatusBar backgroundColor={screen === 'camera' ? '#000' : colors.surface} barStyle={screen === 'camera' ? 'light-content' : 'dark-content'} />
-      <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
-        {renderScreen()}
-      </SafeAreaView>
+      <View style={styles.appRoot}>
+        <StatusBar
+          backgroundColor={showMapLoading ? colors.background : screen === 'camera' ? '#000' : colors.surface}
+          barStyle={screen === 'camera' && !showMapLoading ? 'light-content' : 'dark-content'}
+          translucent={showMapLoading}
+        />
+
+        <SafeAreaView edges={screen === 'camera' ? [] : ['top', 'bottom']} style={styles.safeArea}>
+          {renderScreen()}
+        </SafeAreaView>
+
+        <Modal
+          animationType="fade"
+          navigationBarTranslucent
+          onRequestClose={() => {}}
+          presentationStyle="fullScreen"
+          statusBarTranslucent
+          transparent={false}
+          visible={showMapLoading}
+        >
+          <View style={styles.mapLoadingFullscreen}>
+            <StartupStateScreen
+              title="Ładowanie mapy…"
+              body="Ustalamy Twoją lokalizację i przygotowujemy najbliższe miejsca."
+            />
+          </View>
+        </Modal>
+      </View>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: { backgroundColor: colors.background, flex: 1 },
   safeArea: { backgroundColor: colors.surface, flex: 1 },
+  mapLoadingFullscreen: {
+    backgroundColor: colors.background,
+    flex: 1,
+    minHeight: '100%',
+    width: '100%',
+  },
 });
