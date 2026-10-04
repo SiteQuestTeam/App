@@ -6,6 +6,7 @@ const escapeJson = (value: unknown): string => JSON.stringify(value).replace(/</
 export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions = {}): string {
   const center = options.center || KRAKOW_CENTER;
   const compact = Boolean(options.compact);
+  const webSafe = Boolean(options.webSafe);
   const markers = initiatives.map((item) => ({
     id: item.id,
     title: item.shortTitle,
@@ -26,15 +27,19 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     #map:after{content:"";pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(247,249,252,.06),rgba(23,70,183,.025) 55%,rgba(16,24,40,.05))}
     .maplibregl-ctrl-attrib{font-size:8px!important;background:rgba(255,255,255,.88)!important;color:#667085!important}
     .maplibregl-ctrl-logo{display:none!important}
+    .sitequest-web-player{width:34px;height:34px;border-radius:50%;background:#2F6BFF;border:4px solid #fff;box-shadow:0 6px 18px rgba(16,24,40,.24);position:relative}
+    .sitequest-web-player:after{content:"";position:absolute;inset:7px;border-radius:50%;background:#EEF3FF}
     ${compact ? '.maplibregl-ctrl-bottom-right{display:none}' : ''}
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js'"></script>
+  ${webSafe ? '' : '<script src="https://unpkg.com/three@0.160.0/build/three.min.js" onerror="this.onerror=null;this.src=\'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js\'"></script>'}
   <script>
     const markers = ${escapeJson(markers)};
+    const webSafe = ${webSafe ? 'true' : 'false'};
+    let webPlayerMarker = null;
     let playerPosition = [${center.longitude}, ${center.latitude}];
     const send = (type, payload = {}) => {
       const message = JSON.stringify({ type, ...payload });
@@ -54,16 +59,16 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       try {
         (0, eval)(data.code);
       } catch (error) {
-        send('map-error', { message: String(error) });
+        send('map-warning', { message: String(error) });
       }
     });
 
     window.addEventListener('error', (event) => {
-      send('map-error', { message: event.message || 'Błąd mapy' });
+      send('map-warning', { message: event.message || 'Błąd mapy' });
     });
 
     window.addEventListener('unhandledrejection', (event) => {
-      send('map-error', { message: String(event.reason || 'Błąd mapy') });
+      send('map-warning', { message: String(event.reason || 'Błąd mapy') });
     });
 
     const map = new maplibregl.Map({
@@ -80,6 +85,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       antialias: true
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenStreetMap contributors · OpenFreeMap' }), 'bottom-right');
+    map.on('error', (event) => send('map-warning', { message: String(event?.error?.message || event?.error || 'Błąd MapLibre') }));
     map.dragPan.enable();
     map.scrollZoom.enable();
     map.touchZoomRotate.enable();
@@ -114,6 +120,72 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       const source = map.getSource('sitequest-player-radius');
       if (source && source.setData) source.setData(makeRadiusPolygon(lng, lat, 50));
       setPlayerRadiusVisible(playerVisualsVisible);
+    }
+
+    function updateWebPlayerMarker(lng, lat) {
+      if (!webSafe || !webPlayerMarker) return;
+      webPlayerMarker.setLngLat([lng, lat]);
+    }
+
+    function setWebPlayerVisible(visible) {
+      if (!webSafe || !webPlayerMarker) return;
+      webPlayerMarker.getElement().style.display = visible ? 'block' : 'none';
+    }
+
+    function addWebSafeInitiatives() {
+      if (!webSafe || map.getSource('sitequest-initiatives-web')) return;
+
+      map.addSource('sitequest-initiatives-web', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: markers.map((item) => ({
+            type: 'Feature',
+            properties: {
+              id: item.id,
+              marker: item.marker,
+              color: item.color,
+            },
+            geometry: {
+              type: 'Point',
+              coordinates: item.coordinates,
+            },
+          })),
+        },
+      });
+
+      map.addLayer({
+        id: 'sitequest-initiatives-web-halo',
+        type: 'circle',
+        source: 'sitequest-initiatives-web',
+        paint: {
+          'circle-radius': 24,
+          'circle-color': ['get', 'color'],
+          'circle-opacity': 0.20,
+        },
+      });
+
+      map.addLayer({
+        id: 'sitequest-initiatives-web',
+        type: 'circle',
+        source: 'sitequest-initiatives-web',
+        paint: {
+          'circle-radius': 17,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 5,
+        },
+      });
+    }
+
+    function ensureWebPlayerMarker() {
+      if (!webSafe || webPlayerMarker) return;
+      const element = document.createElement('div');
+      element.className = 'sitequest-web-player';
+      webPlayerMarker = new maplibregl.Marker({ element, anchor: 'center' })
+        .setLngLat(playerPosition)
+        .addTo(map);
+      setWebPlayerVisible(playerVisualsVisible);
     }
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
@@ -899,32 +971,39 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           paint: { 'line-color': '#2F6BFF', 'line-width': 2, 'line-opacity': 0.52 }
         });
       }
-      const sourceId = map.getSource('openmaptiles')
-        ? 'openmaptiles'
-        : Object.keys(map.getStyle().sources || {}).find((id) => map.getSource(id)?.type === 'vector');
-      if (sourceId && !map.getLayer('sitequest-3d-buildings')) {
-        const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol');
-        map.addLayer({
-          id: 'sitequest-3d-buildings',
-          source: sourceId,
-          'source-layer': 'building',
-          type: 'fill-extrusion',
-          minzoom: 14,
-          paint: {
-            'fill-extrusion-color': ['interpolate',['linear'],['coalesce',['to-number',['get','render_height']],['to-number',['get','height']],8],0,'#E4EAF1',18,'#D5DFEA',45,'#C7D3E2',80,'#B6C5D8'],
-            'fill-extrusion-height': ['coalesce',['to-number',['get','render_height']],['to-number',['get','height']],8],
-            'fill-extrusion-base': ['coalesce',['to-number',['get','render_min_height']],0],
-            'fill-extrusion-opacity': 0.88
-          }
-        }, firstSymbol?.id);
+      if (webSafe) {
+        addWebSafeInitiatives();
+        ensureWebPlayerMarker();
+      } else {
+        const sourceId = map.getSource('openmaptiles')
+          ? 'openmaptiles'
+          : Object.keys(map.getStyle().sources || {}).find((id) => map.getSource(id)?.type === 'vector');
+        if (sourceId && !map.getLayer('sitequest-3d-buildings')) {
+          const firstSymbol = map.getStyle().layers.find((layer) => layer.type === 'symbol');
+          map.addLayer({
+            id: 'sitequest-3d-buildings',
+            source: sourceId,
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': ['interpolate',['linear'],['coalesce',['to-number',['get','render_height']],['to-number',['get','height']],8],0,'#E4EAF1',18,'#D5DFEA',45,'#C7D3E2',80,'#B6C5D8'],
+              'fill-extrusion-height': ['coalesce',['to-number',['get','render_height']],['to-number',['get','height']],8],
+              'fill-extrusion-base': ['coalesce',['to-number',['get','render_min_height']],0],
+              'fill-extrusion-opacity': 0.88
+            }
+          }, firstSymbol?.id);
+        }
+        if (!map.getLayer(initiativeFlatLayer.id)) map.addLayer(initiativeFlatLayer);
+        if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
       }
-      if (!map.getLayer(initiativeFlatLayer.id)) map.addLayer(initiativeFlatLayer);
-      if (!map.getLayer(player3DLayer.id)) map.addLayer(player3DLayer);
 
       if (playerHasFix) {
         updatePlayerRadius(playerPosition[0], playerPosition[1]);
+        updateWebPlayerMarker(playerPosition[0], playerPosition[1]);
       } else {
         setPlayerRadiusVisible(false);
+        setWebPlayerVisible(false);
       }
 
       send('ready');
@@ -964,7 +1043,10 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       playerHasFix = true;
       playerVisualsVisible = true;
 
-      if (isFirstFix || distance > 500) {
+      if (webSafe) {
+        updatePlayerRadius(lng, lat);
+        updateWebPlayerMarker(lng, lat);
+      } else if (isFirstFix || distance > 500) {
         updatePlayerTransform(lng, lat, true);
         updatePlayerRadius(lng, lat);
       } else {
@@ -993,6 +1075,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
     window.setPlayerVisible = (visible) => {
       playerVisualsVisible = Boolean(visible) && playerHasFix;
       setPlayerRadiusVisible(playerVisualsVisible);
+      setWebPlayerVisible(playerVisualsVisible);
 
       if (player3DLayer.beaver) {
         player3DLayer.beaver.visible = playerVisualsVisible;
