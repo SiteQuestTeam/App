@@ -239,19 +239,13 @@ export function IncidentScreen({
         <>
           <Text style={styles.stageTitle}>Pokaż usterkę</Text>
           <Text style={styles.stageDescription}>
-            Zrób jedno Zdjęcie na żywo. Równolegle pobieramy GPS, żeby później automatycznie uzupełnić adres.
+            Zrób wyraźne zdjęcie usterki, tak aby dobrze było widać problem.
           </Text>
 
           <View style={styles.photoCard}>
             {photoUri ? (
               <>
                 <Image source={{ uri: photoUri }} style={styles.photo} />
-                <View style={styles.photoOverlay}>
-                  <View style={styles.liveBadge}>
-                    <View style={styles.liveDot} />
-                    <Text style={styles.liveText}>ZDJĘCIE NA ŻYWO</Text>
-                  </View>
-                </View>
                 <Pressable onPress={onCamera} style={styles.retakeButton}>
                   <Ionicons color={colors.ink} name="camera-outline" size={18} />
                   <Text style={styles.retakeText}>Zrób ponownie</Text>
@@ -270,13 +264,6 @@ export function IncidentScreen({
               </View>
             )}
           </View>
-
-          <LocationStatus
-            coordinates={coordinates}
-            geocodingLoading={geocodingLoading}
-            locationError={locationError}
-            locationLoading={locationLoading}
-          />
 
           <PrimaryButton
             disabled={!photoUri}
@@ -739,18 +726,6 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   photo: { height: 230, width: '100%' },
-  photoOverlay: { left: 12, position: 'absolute', top: 12 },
-  liveBadge: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(16,24,40,.78)',
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  liveDot: { backgroundColor: colors.error, borderRadius: 4, height: 8, width: 8 },
-  liveText: { color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.7 },
   retakeButton: {
     alignItems: 'center',
     backgroundColor: colors.surface,
