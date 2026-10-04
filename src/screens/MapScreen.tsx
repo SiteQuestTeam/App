@@ -43,14 +43,21 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
   const selected = initiatives.find((item) => item.id === selectedId) || initiatives[0];
 
   useEffect(() => {
+    createMenuProgress.stopAnimation();
+
+    if (!createMenuOpen) {
+      createMenuProgress.setValue(0);
+      return;
+    }
+
+    createMenuProgress.setValue(0);
     Animated.spring(createMenuProgress, {
-      toValue: createMenuOpen ? 1 : 0,
+      toValue: 1,
       useNativeDriver: true,
       damping: 18,
       stiffness: 250,
       mass: 0.82,
     }).start();
-
   }, [createMenuOpen, createMenuProgress]);
 
   useEffect(() => {
@@ -238,9 +245,10 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         )}
       </View>
 
-      <Animated.View
-        pointerEvents={createMenuOpen ? 'auto' : 'none'}
-        style={[
+      {createMenuOpen && (
+        <Animated.View
+          pointerEvents="auto"
+          style={[
           styles.createChoices,
           {
             opacity: createMenuProgress,
@@ -288,7 +296,8 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             </>
           )}
         </Pressable>
-      </Animated.View>
+        </Animated.View>
+      )}
 
       <Pressable
         accessibilityLabel={createMenuOpen ? 'Zamknij menu zgłoszenia' : 'Dodaj zgłoszenie'}
