@@ -80,7 +80,7 @@ function VotingInitiativeCard({
   onCheckLocation,
 }) {
   const position = useRef(new Animated.ValueXY()).current;
-  const [expanded, setExpanded] = useState(false);
+  const [showFullDetails, setShowFullDetails] = useState(false);
   const [gestureMessage, setGestureMessage] = useState<string | null>(null);
 
   const canVote = !initiative.hasVoted && distance !== null && distance <= 50;
@@ -142,38 +142,40 @@ function VotingInitiativeCard({
   };
 
   const panResponder = PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => {
-        const horizontal = Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
-        const pullDown = !expanded && gesture.dy > 14 && Math.abs(gesture.dy) > Math.abs(gesture.dx);
-        return horizontal || pullDown;
-      },
-      onPanResponderMove: (_, gesture) => {
-        const horizontal = Math.abs(gesture.dx) >= Math.abs(gesture.dy);
-        position.setValue({
-          x: horizontal ? gesture.dx : 0,
-          y: !expanded && !horizontal && gesture.dy > 0 ? Math.min(gesture.dy, 78) : 0,
-        });
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
-          void approve();
-          return;
-        }
+    onMoveShouldSetPanResponder: (_, gesture) => (
+      Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy)
+    ),
+    onPanResponderMove: (_, gesture) => {
+      position.setValue({ x: gesture.dx, y: 0 });
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx > SWIPE_THRESHOLD && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
+        void approve();
+        return;
+      }
 
-        if (gesture.dx < -SWIPE_THRESHOLD && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
-          dismissLeft();
-          return;
-        }
+      if (gesture.dx < -SWIPE_THRESHOLD && Math.abs(gesture.dx) > Math.abs(gesture.dy)) {
+        dismissLeft();
+        return;
+      }
 
-        if (!expanded && gesture.dy > 54 && Math.abs(gesture.dy) > Math.abs(gesture.dx)) {
-          setExpanded(true);
-          setGestureMessage(null);
-        }
+      resetCard();
+    },
+    onPanResponderTerminate: resetCard,
+  });
 
-        resetCard();
-      },
-      onPanResponderTerminate: resetCard,
-    });
+  if (showFullDetails) {
+    return (
+      <CollectingInitiativeDetail
+        checking={checking}
+        distance={distance}
+        initiative={initiative}
+        locationError={locationError}
+        onBack={() => setShowFullDetails(false)}
+        onCheckLocation={onCheckLocation}
+      />
+    );
+  }
 
   const rotate = position.x.interpolate({
     inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
@@ -220,11 +222,15 @@ function VotingInitiativeCard({
             <Text style={[styles.swipeBadgeText, styles.swipeBadgeTextApprove]}>GŁOS</Text>
           </Animated.View>
 
-          <ScrollView
-            bounces={expanded}
-            contentContainerStyle={styles.cardScroll}
-            scrollEnabled={expanded}
-            showsVerticalScrollIndicator={false}
+          <Pressable
+            accessibilityHint="Otwiera pełne szczegóły inicjatywy"
+            accessibilityLabel={`Otwórz inicjatywę: ${initiative.brief.title}`}
+            accessibilityRole="button"
+            onPress={() => {
+              setGestureMessage(null);
+              setShowFullDetails(true);
+            }}
+            style={styles.cardTapArea}
           >
             <InitiativeHero initiative={initiative} />
 
@@ -240,104 +246,22 @@ function VotingInitiativeCard({
               <Text style={styles.tinderTitle}>{initiative.brief.title}</Text>
               <Text style={styles.tinderPlace}>{initiative.brief.place}</Text>
 
-              <View style={styles.voteSummary}>
-                <View>
-                  <Text style={styles.voteSummaryLabel}>GŁOSY</Text>
-                  <Text style={styles.voteSummaryCount}>{initiative.votes}/{initiative.threshold}</Text>
+              <View style={styles.problemBlock}>
+                <View style={styles.problemLabelRow}>
+                  <Ionicons color={colors.signal} name="alert-circle-outline" size={17} />
+                  <Text style={styles.problemLabel}>PROBLEM</Text>
                 </View>
-                <View style={styles.voteSummaryCopy}>
-                  <Text numberOfLines={expanded ? undefined : 2} style={styles.problemPreview}>
-                    {initiative.brief.problem}
-                  </Text>
-                </View>
+                <Text numberOfLines={4} style={styles.problemPreview}>
+                  {initiative.brief.problem}
+                </Text>
               </View>
 
-              <View style={styles.progress}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${Math.min(100, initiative.votes / initiative.threshold * 100)}%`,
-                      backgroundColor: colors.signal,
-                    },
-                  ]}
-                />
+              <View style={styles.openDetailsRow}>
+                <Text style={styles.openDetailsText}>Zobacz wszystkie informacje</Text>
+                <Ionicons color={colors.signal} name="chevron-forward" size={18} />
               </View>
-
-              {!expanded ? (
-                <Pressable
-                  accessibilityHint="Pokazuje pełny Brief inicjatywy"
-                  accessibilityLabel="Więcej informacji o inicjatywie"
-                  accessibilityRole="button"
-                  onPress={() => setExpanded(true)}
-                  style={({ pressed }) => [styles.pullMore, pressed && styles.pullMorePressed]}
-                >
-                  <View style={styles.pullMoreIcon}>
-                    <Ionicons color={colors.signal} name="document-text-outline" size={18} />
-                  </View>
-                  <View style={styles.pullMoreCopy}>
-                    <Text style={styles.pullMoreTitle}>Więcej informacji</Text>
-                    <Text style={styles.pullMoreText}>Dotknij lub przeciągnij kartę w dół</Text>
-                  </View>
-                  <View style={styles.pullMoreChevron}>
-                    <Ionicons color={colors.signal} name="chevron-down" size={18} />
-                  </View>
-                </Pressable>
-              ) : (
-                <View style={styles.expandedContent}>
-                  <View style={styles.expandedDivider} />
-                  <BriefSection icon="hammer-outline" label="Proponowane działanie" text={initiative.brief.proposedAction} />
-                  <BriefSection icon="heart-outline" label="Dlaczego to ważne" text={initiative.brief.whyImportant} />
-
-                  <Text style={styles.sectionTitle}>Potrzebne zasoby</Text>
-                  <View style={styles.resources}>
-                    <Resource icon="people-outline" label="Ludzie" value={initiative.brief.resources.people} />
-                    <Resource icon="construct-outline" label="Sprzęt" value={initiative.brief.resources.equipment} />
-                    <Resource icon="car-outline" label="Transport" value={initiative.brief.resources.transport} />
-                  </View>
-
-                  <View style={styles.fixerCard}>
-                    <View style={styles.fixerIcon}>
-                      <Ionicons color={colors.violet} name="build-outline" size={21} />
-                    </View>
-                    <View style={styles.fixerCopy}>
-                      <Text style={styles.fixerLabel}>KTO NAPRAWI</Text>
-                      <Text style={styles.fixerValue}>{initiative.brief.fixer}</Text>
-                      <Text style={styles.fixerMeta}>Sugestia AI potwierdzona przez Gracza</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.locationCard}>
-                    <Ionicons
-                      color={distance !== null && distance <= 50 ? colors.resolved : colors.signal}
-                      name="location"
-                      size={21}
-                    />
-                    <View style={styles.locationCopy}>
-                      <Text style={styles.locationTitle}>
-                        {distance !== null && distance <= 50 ? 'Jesteś w zasięgu Głosu' : 'Głos tylko na miejscu'}
-                      </Text>
-                      <Text style={styles.locationBody}>
-                        {locationError
-                          ? 'Nie udało się pobrać GPS.'
-                          : distance !== null
-                            ? `Aktualnie: ~${Math.round(distance)} m. Głos wymaga maks. około 50 m.`
-                            : 'Swipe w prawo sprawdzi GPS przed oddaniem Głosu.'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Pressable
-                    onPress={() => setExpanded(false)}
-                    style={({ pressed }) => [styles.collapseButton, pressed && styles.pressed]}
-                  >
-                    <Ionicons color={colors.signal} name="chevron-up" size={16} />
-                    <Text style={styles.collapseButtonText}>Zwiń szczegóły</Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
-          </ScrollView>
+          </Pressable>
         </Animated.View>
       </View>
 
@@ -401,8 +325,8 @@ function InitiativeHero({ initiative }) {
 
   return (
     <View style={[styles.tinderHero, styles.tinderHeroFallback, { backgroundColor: colors.blueSoft }]}>
-      <View style={[styles.voteOrb, { backgroundColor: initiative.color }]}>
-        <Text style={styles.voteOrbText}>{initiative.votes}</Text>
+      <View style={[styles.categoryOrb, { backgroundColor: initiative.color }]}>
+        <Ionicons color={colors.surface} name="sparkles-outline" size={28} />
       </View>
       <Text style={styles.heroHint}>{initiative.brief.category.toUpperCase()}</Text>
     </View>
