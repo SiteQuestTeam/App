@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
@@ -360,8 +360,16 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
         </View>
       )}
 
-      {locationUnavailable && (
-        <View style={styles.startupOverlay}>
+      <Modal
+        animationType="fade"
+        navigationBarTranslucent
+        onRequestClose={() => {}}
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        transparent={false}
+        visible={locationUnavailable}
+      >
+        <View style={styles.fullscreenGps}>
           <StartupStateScreen
             mode="gps"
             title="Brak sygnału GPS"
@@ -369,7 +377,7 @@ export function MapScreen({ initiatives, onNavigate, onOpenInitiative, onCreate,
             onRetry={retryLocation}
           />
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -381,6 +389,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     elevation: 50,
     zIndex: 100,
+  },
+  fullscreenGps: {
+    backgroundColor: colors.background,
+    flex: 1,
   },
   mapArea: { flex: 1, overflow: 'hidden' },
   map: { flex: 1 },
