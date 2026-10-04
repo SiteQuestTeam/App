@@ -1,0 +1,99 @@
+name: Android release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-main
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build and publish Android release
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          BASE_VERSION="$(node -p "require('./package.json').version")"
+          VERSION_NAME="${BASE_VERSION}-build.${GITHUB_RUN_NUMBER}"
+          RELEASE_TAG="android-${VERSION_NAME}"
+
+          echo "CI_VERSION_CODE=${GITHUB_RUN_NUMBER}" >> "${GITHUB_ENV}"
+          echo "CI_VERSION_NAME=${VERSION_NAME}" >> "${GITHUB_ENV}"
+          echo "RELEASE_TAG=${RELEASE_TAG}" >> "${GITHUB_ENV}"
+          echo "RELEASE_TITLE=SiteQuest Android ${VERSION_NAME}" >> "${GITHUB_ENV}"
+
+      - name: Build release APK and AAB
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
+
+      - name: Prepare release files
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/SiteQuest-${CI_VERSION_NAME}.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "dist/SiteQuest-${CI_VERSION_NAME}.aab"
+          cd dist
+          sha256sum *.apk *.aab > SHA256SUMS.txt
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "SiteQuest-${{ env.CI_VERSION_NAME }}"
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          cat > release-notes.md <<EOF
+          Automated Android release from `main`.
+
+          - Version: ${CI_VERSION_NAME}
+          - Version code: ${CI_VERSION_CODE}
+          - Commit: ${GITHUB_SHA}
+          - APK: installable Android package
+          - AAB: Android App Bundle
+          - SHA256SUMS.txt: checksums for both artifacts
+
+          This hackathon build currently uses the repository's release signing configuration.
+          EOF
+
+          gh release create "${RELEASE_TAG}"             dist/*             --target "${GITHUB_SHA}"             --title "${RELEASE_TITLE}"             --notes-file release-notes.md
