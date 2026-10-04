@@ -74,16 +74,25 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       };
     }
 
+    function setPlayerRadiusVisible(visible) {
+      const visibility = visible ? 'visible' : 'none';
+      ['sitequest-player-radius-fill', 'sitequest-player-radius-line'].forEach((layerId) => {
+        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, 'visibility', visibility);
+      });
+    }
+
     function updatePlayerRadius(lng, lat) {
       const source = map.getSource('sitequest-player-radius');
       if (source && source.setData) source.setData(makeRadiusPolygon(lng, lat, 50));
+      setPlayerRadiusVisible(playerVisualsVisible);
     }
 
     const BEAVER_METERS_PER_UNIT = ${compact ? 12 : 15};
-    const BEAVER_GROUND_CLEARANCE_METERS = 1.2;
+    const BEAVER_GROUND_CLEARANCE_METERS = 0.05;
     let playerTransform = null;
     let playerTargetTransform = null;
     let playerHasFix = false;
+    let playerVisualsVisible = false;
     let playerAnchored = false;
     let targetMapBearing = -24;
     let displayedBeaverRotation = Math.PI + 24 * Math.PI / 180;
@@ -676,7 +685,12 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
         this.renderer.autoClear = false;
       },
       render(gl, args) {
-        if (!playerTransform) return;
+        if (!playerTransform || !playerVisualsVisible) return;
+
+        this.beaver.visible = playerVisualsVisible;
+        if (this.beaver.userData.beacon) {
+          this.beaver.userData.beacon.visible = playerVisualsVisible;
+        }
 
         const rotationX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), playerTransform.rotateX);
         const rotationY = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 1, 0), playerTransform.rotateY);
@@ -810,12 +824,14 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
           id: 'sitequest-player-radius-fill',
           type: 'fill',
           source: 'sitequest-player-radius',
+          layout: { visibility: 'none' },
           paint: { 'fill-color': '#2F6BFF', 'fill-opacity': 0.08 }
         });
         map.addLayer({
           id: 'sitequest-player-radius-line',
           type: 'line',
           source: 'sitequest-player-radius',
+          layout: { visibility: 'none' },
           paint: { 'line-color': '#2F6BFF', 'line-width': 2, 'line-opacity': 0.52 }
         });
       }
@@ -865,6 +881,7 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
 
       playerPosition = [lng, lat];
       playerHasFix = true;
+      playerVisualsVisible = true;
 
       if (isFirstFix || distance > 500) {
         updatePlayerTransform(lng, lat, true);
@@ -891,6 +908,19 @@ export function createMapHtml(initiatives: Initiative[], options: MapHtmlOptions
       }
     }
     window.movePlayer = movePlayer;
+    window.setPlayerVisible = (visible) => {
+      playerVisualsVisible = Boolean(visible) && playerHasFix;
+      setPlayerRadiusVisible(playerVisualsVisible);
+
+      if (player3DLayer.beaver) {
+        player3DLayer.beaver.visible = playerVisualsVisible;
+        if (player3DLayer.beaver.userData.beacon) {
+          player3DLayer.beaver.userData.beacon.visible = playerVisualsVisible;
+        }
+      }
+
+      map.triggerRepaint();
+    };
     function shortestBearingDelta(from, to) {
       return ((to - from + 540) % 360) - 180;
     }
