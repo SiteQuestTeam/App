@@ -76,8 +76,8 @@ export const initiatives: Initiative[] = [
 
 export const rewards: Reward[] = [
   { id: 'coffee', title: 'Kawa dla aktywnych', description: 'Jedna kawa w lokalnej kawiarni.', points: 250, sponsor: 'Kawiarnia Sąsiedzka', icon: 'cafe' },
-  { id: 'cinema', title: 'Bilet do kina', description: 'Wejściówka na wybrany seans.', points: 700, sponsor: 'Kino miejskie', icon: 'film' },
-  { id: 'transport', title: '24h komunikacji', description: 'Demonstracyjna nagroda: dobowy bilet komunikacji.', points: 1000, sponsor: 'Partner demo', icon: 'bus' },
+  { id: 'cinema', title: 'Bilet do kina', description: 'Wejściówka na wybrany seans.', points: 700, sponsor: 'Kino Podgórskie', icon: 'film' },
+  { id: 'transport', title: '24h komunikacji', description: 'Demonstracyjna nagroda: dobowy bilet komunikacji.', points: 1000, sponsor: 'Rowerowy Zakątek', icon: 'bus' },
 ];
 
 export const mockAiQuestions = [
